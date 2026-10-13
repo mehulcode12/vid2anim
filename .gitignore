@@ -31,5 +31,8 @@ ENV/
 outputs/
 *.npz
 *.glb
+*.mp4
+vid/
+glb/
 weights/
 .pytest_cache/

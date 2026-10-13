@@ -18,6 +18,7 @@ class RigType(str, Enum):
     MIXAMO = "mixamo"
     VRM_HUMANOID = "vrm_humanoid"
     BLENDER_RIGIFY = "blender_rigify"
+    CHARACTER_CREATOR = "character_creator"
     UNREAL = "unreal_mannequin"
     GENERIC = "generic_humanoid"
     UNRIGGED = "unrigged_mesh"
@@ -46,27 +47,27 @@ CANONICAL_JOINTS = (
     "right_foot",
 )
 
-# Known aliases across 3D ecosystems
+# Known aliases across 3D ecosystems (Mixamo, VRM, Rigify, Unreal, Reallusion Character Creator, Daz3D)
 JOINT_ALIASES: Dict[str, List[str]] = {
-    "hips": ["mixamorig:hips", "mixamorig_hips", "hips", "pelvis", "root", "hip", "b_hips"],
-    "spine": ["mixamorig:spine", "mixamorig_spine", "spine", "spine_01", "def-spine", "b_spine"],
-    "chest": ["mixamorig:spine2", "mixamorig:spine1", "chest", "upperchest", "spine_02", "spine_03", "def-chest", "b_chest"],
-    "neck": ["mixamorig:neck", "mixamorig_neck", "neck", "neck_01", "def-neck", "b_neck"],
-    "head": ["mixamorig:head", "mixamorig_head", "head", "head_01", "def-head", "b_head"],
-    "left_shoulder": ["mixamorig:leftshoulder", "leftshoulder", "clavicle_l", "shoulder.l", "def-shoulder.l", "b_l_shoulder"],
-    "left_arm": ["mixamorig:leftarm", "leftupperarm", "upperarm_l", "upper_arm.l", "arm.l", "def-upper_arm.l", "b_l_arm"],
-    "left_forearm": ["mixamorig:leftforearm", "leftlowerarm", "lowerarm_l", "forearm.l", "def-forearm.l", "b_l_forearm"],
-    "left_hand": ["mixamorig:lefthand", "lefthand", "hand_l", "hand.l", "def-hand.l", "b_l_hand"],
-    "right_shoulder": ["mixamorig:rightshoulder", "rightshoulder", "clavicle_r", "shoulder.r", "def-shoulder.r", "b_r_shoulder"],
-    "right_arm": ["mixamorig:rightarm", "rightupperarm", "upperarm_r", "upper_arm.r", "arm.r", "def-upper_arm.r", "b_r_arm"],
-    "right_forearm": ["mixamorig:rightforearm", "rightlowerarm", "lowerarm_r", "forearm.r", "def-forearm.r", "b_r_forearm"],
-    "right_hand": ["mixamorig:righthand", "righthand", "hand_r", "hand.r", "def-hand.r", "b_r_hand"],
-    "left_upleg": ["mixamorig:leftupleg", "leftupperleg", "thigh_l", "thigh.l", "def-thigh.l", "b_l_upleg"],
-    "left_leg": ["mixamorig:leftleg", "leftlowerleg", "calf_l", "shin.l", "def-shin.l", "b_l_leg"],
-    "left_foot": ["mixamorig:leftfoot", "leftfoot", "foot_l", "foot.l", "def-foot.l", "b_l_foot"],
-    "right_upleg": ["mixamorig:rightupleg", "rightupperleg", "thigh_r", "thigh.r", "def-thigh.r", "b_r_upleg"],
-    "right_leg": ["mixamorig:rightleg", "rightlowerleg", "calf_r", "shin.r", "def-shin.r", "b_r_leg"],
-    "right_foot": ["mixamorig:rightfoot", "rightfoot", "foot_r", "foot.r", "def-foot.r", "b_r_foot"],
+    "hips": ["mixamorig:hips", "mixamorig_hips", "hips", "pelvis", "root", "hip", "b_hips", "cc_base_pelvis", "cc_base_hip"],
+    "spine": ["mixamorig:spine", "mixamorig_spine", "spine", "spine01", "spine_01", "spine1", "def-spine", "b_spine", "cc_base_spine01"],
+    "chest": ["mixamorig:spine2", "mixamorig:spine1", "chest", "upperchest", "spine02", "spine_02", "spine_03", "spine2", "def-chest", "b_chest", "cc_base_spine02"],
+    "neck": ["mixamorig:neck", "mixamorig_neck", "neck", "neck_01", "neck01", "def-neck", "b_neck", "cc_base_neck", "cc_base_necktwist01"],
+    "head": ["mixamorig:head", "mixamorig_head", "head", "head_01", "def-head", "b_head", "cc_base_head"],
+    "left_shoulder": ["mixamorig:leftshoulder", "leftshoulder", "clavicle_l", "l_clavicle", "shoulder.l", "def-shoulder.l", "b_l_shoulder", "cc_base_l_clavicle"],
+    "left_arm": ["mixamorig:leftarm", "leftupperarm", "upperarm_l", "upper_arm.l", "arm.l", "def-upper_arm.l", "b_l_arm", "l_upperarm", "l_arm", "cc_base_l_upperarm"],
+    "left_forearm": ["mixamorig:leftforearm", "leftlowerarm", "lowerarm_l", "forearm.l", "def-forearm.l", "b_l_forearm", "l_forearm", "l_lowerarm", "cc_base_l_forearm"],
+    "left_hand": ["mixamorig:lefthand", "lefthand", "hand_l", "hand.l", "def-hand.l", "b_l_hand", "l_hand", "cc_base_l_hand"],
+    "right_shoulder": ["mixamorig:rightshoulder", "rightshoulder", "clavicle_r", "r_clavicle", "shoulder.r", "def-shoulder.r", "b_r_shoulder", "cc_base_r_clavicle"],
+    "right_arm": ["mixamorig:rightarm", "rightupperarm", "upperarm_r", "upper_arm.r", "arm.r", "def-upper_arm.r", "b_r_arm", "r_upperarm", "r_arm", "cc_base_r_upperarm"],
+    "right_forearm": ["mixamorig:rightforearm", "rightlowerarm", "lowerarm_r", "forearm.r", "def-forearm.r", "b_r_forearm", "r_forearm", "r_lowerarm", "cc_base_r_forearm"],
+    "right_hand": ["mixamorig:righthand", "righthand", "hand_r", "hand.r", "def-hand.r", "b_r_hand", "r_hand", "cc_base_r_hand"],
+    "left_upleg": ["mixamorig:leftupleg", "leftupperleg", "thigh_l", "thigh.l", "def-thigh.l", "b_l_upleg", "l_thigh", "l_upperleg", "cc_base_l_thigh"],
+    "left_leg": ["mixamorig:leftleg", "leftlowerleg", "calf_l", "shin.l", "def-shin.l", "b_l_leg", "l_calf", "l_lowerleg", "l_leg", "cc_base_l_calf"],
+    "left_foot": ["mixamorig:leftfoot", "leftfoot", "foot_l", "foot.l", "def-foot.l", "b_l_foot", "l_foot", "cc_base_l_foot"],
+    "right_upleg": ["mixamorig:rightupleg", "rightupperleg", "thigh_r", "thigh.r", "def-thigh.r", "b_r_upleg", "r_thigh", "r_upperleg", "cc_base_r_thigh"],
+    "right_leg": ["mixamorig:rightleg", "rightlowerleg", "calf_r", "shin.r", "def-shin.r", "b_r_leg", "r_calf", "r_lowerleg", "r_leg", "cc_base_r_calf"],
+    "right_foot": ["mixamorig:rightfoot", "rightfoot", "foot_r", "foot.r", "def-foot.r", "b_r_foot", "r_foot", "cc_base_r_foot"],
 }
 
 
@@ -239,6 +240,7 @@ def _classify_bones(bone_names: List[str]) -> Tuple[RigType, Dict[str, str]]:
 
     mixamo_count = sum(1 for b in bone_names if "mixamorig" in b.lower())
     rigify_count = sum(1 for b in bone_names if "def-" in b.lower())
+    cc_count = sum(1 for b in bone_names if "cc_base" in b.lower())
     vrm_names = {
         "hips", "spine", "chest", "neck", "head",
         "leftupperarm", "rightupperarm", "leftlowerarm", "rightlowerarm",
@@ -246,24 +248,41 @@ def _classify_bones(bone_names: List[str]) -> Tuple[RigType, Dict[str, str]]:
     }
     vrm_count = sum(1 for b in bone_names if b.lower() in vrm_names)
 
+    # Separate primary structural bones from auxiliary/twist/share bones
+    primary_bones = [b for b in bone_names if not any(x in b.lower() for x in ["twist", "sharebone", "nub", "scale"])]
+    secondary_bones = [b for b in bone_names if b not in primary_bones]
+
     for canonical, aliases in JOINT_ALIASES.items():
+        found = False
         for alias in aliases:
-            # Exact match check
+            # 1. Exact match
             if alias.lower() in lower_to_orig:
                 mapping[canonical] = lower_to_orig[alias.lower()]
+                found = True
                 break
-            # Substring match fallback (e.g. "Armature|mixamorig:Hips")
-            matched = False
-            for b_orig in bone_names:
+            
+            # 2. Substring match against primary (non-twist) bones first
+            for b_orig in primary_bones:
                 if alias.lower() in b_orig.lower():
                     mapping[canonical] = b_orig
-                    matched = True
+                    found = True
                     break
-            if matched:
+            if found:
+                break
+
+            # 3. Fallback: Substring match against secondary (twist/auxiliary) bones
+            for b_orig in secondary_bones:
+                if alias.lower() in b_orig.lower():
+                    mapping[canonical] = b_orig
+                    found = True
+                    break
+            if found:
                 break
 
     if mixamo_count >= 4:
         rig_type = RigType.MIXAMO
+    elif cc_count >= 4:
+        rig_type = RigType.CHARACTER_CREATOR
     elif rigify_count >= 4:
         rig_type = RigType.BLENDER_RIGIFY
     elif vrm_count >= 4:
