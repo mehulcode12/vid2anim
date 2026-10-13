@@ -75,7 +75,13 @@ class MotionSequence:
 class MotionExtractor:
     """Extracts 3D motion from image or video with CPU/GPU device selection."""
 
-    def __init__(self, device: str = "auto", reporter: Optional[ProgressReporter] = None) -> None:
+    def __init__(
+        self,
+        device: str = "auto",
+        engine: str = "mediapipe",
+        dwpose_mode: str = "lightweight",
+        reporter: Optional[ProgressReporter] = None,
+    ) -> None:
         diag = get_system_diagnostics()
         if device == "auto":
             self.device = diag["recommended_device"]
@@ -88,7 +94,10 @@ class MotionExtractor:
         else:
             self.device = "cpu"
 
+        self.engine = engine.lower() if engine else "mediapipe"
+        self.dwpose_mode = dwpose_mode
         self.reporter = reporter or ProgressReporter()
+        self._dwpose_detector = None
 
     def extract_from_file(
         self,
@@ -133,38 +142,211 @@ class MotionExtractor:
             return None
 
 
+    def _init_dwpose_detector(self):
+        """Initialize or return cached RTMLib Wholebody detector (DWPose / RTMPose)."""
+        if self._dwpose_detector is not None:
+            return self._dwpose_detector
+
+        try:
+            import rtmlib
+            try:
+                self._dwpose_detector = rtmlib.Wholebody(
+                    mode=self.dwpose_mode,
+                    backend="onnxruntime",
+                    device=self.device,
+                )
+            except Exception:
+                # Fallback to lightweight mode if requested mode fails to load
+                self._dwpose_detector = rtmlib.Wholebody(
+                    mode="lightweight",
+                    backend="onnxruntime",
+                    device=self.device,
+                )
+            return self._dwpose_detector
+        except Exception as e:
+            self.reporter.report("EXTRACT", 0.05, f"DWPose initialization notice: {e}. Falling back to MediaPipe.")
+            return None
+
+    def _map_dwpose_landmarks(
+        self,
+        kpts: np.ndarray,
+        scores: np.ndarray,
+        img_w: int,
+        img_h: int,
+        mp_depth_prior: Optional[Dict[str, np.ndarray]] = None,
+    ) -> Dict[str, np.ndarray]:
+        """Map 133 DWPose / RTMPose WholeBody keypoints to canonical humanoid 3D format."""
+        l_hip_2d = kpts[11]
+        r_hip_2d = kpts[12]
+        hips_2d = (l_hip_2d + r_hip_2d) * 0.5
+
+        l_sh_2d = kpts[5]
+        r_sh_2d = kpts[6]
+        sh_mid_2d = (l_sh_2d + r_sh_2d) * 0.5
+
+        torso_px = float(np.linalg.norm(sh_mid_2d - hips_2d))
+        scale = (0.55 / torso_px) if torso_px > 10.0 else (1.0 / max(img_h, 1))
+
+        def pt(idx: int, ref_z: float = 0.0) -> np.ndarray:
+            p2d = kpts[idx]
+            x = (p2d[0] - hips_2d[0]) * scale
+            y = 1.0 - (p2d[1] - hips_2d[1]) * scale
+            z = ref_z
+            return np.array([x, y, z], dtype=np.float32)
+
+        depth_map: Dict[str, float] = {}
+        if mp_depth_prior is not None:
+            for k, v in mp_depth_prior.items():
+                depth_map[k] = float(v[2])
+        else:
+            depth_map["hips"] = 0.0
+            depth_map["neck"] = 0.0
+            depth_map["head"] = 0.0
+            depth_map["left_shoulder"] = 0.0
+            depth_map["right_shoulder"] = 0.0
+
+            l_el_2d = kpts[7]
+            d_l_arm_2d = float(np.linalg.norm(l_el_2d - l_sh_2d)) * scale
+            dz_l_el = float(np.sqrt(max(0.0, 0.28**2 - d_l_arm_2d**2))) * 0.5
+            depth_map["left_forearm"] = dz_l_el
+
+            l_wr_2d = kpts[9]
+            d_l_fore_2d = float(np.linalg.norm(l_wr_2d - l_el_2d)) * scale
+            dz_l_wr = float(np.sqrt(max(0.0, 0.25**2 - d_l_fore_2d**2))) * 0.6
+            depth_map["left_hand"] = dz_l_el + dz_l_wr
+
+            r_el_2d = kpts[8]
+            d_r_arm_2d = float(np.linalg.norm(r_el_2d - r_sh_2d)) * scale
+            dz_r_el = float(np.sqrt(max(0.0, 0.28**2 - d_r_arm_2d**2))) * 0.5
+            depth_map["right_forearm"] = dz_r_el
+
+            r_wr_2d = kpts[10]
+            d_r_fore_2d = float(np.linalg.norm(r_wr_2d - r_el_2d)) * scale
+            dz_r_wr = float(np.sqrt(max(0.0, 0.25**2 - d_r_fore_2d**2))) * 0.6
+            depth_map["right_hand"] = dz_r_el + dz_r_wr
+
+            l_kn_2d = kpts[13]
+            d_l_thigh_2d = float(np.linalg.norm(l_kn_2d - l_hip_2d)) * scale
+            dz_l_kn = float(np.sqrt(max(0.0, 0.42**2 - d_l_thigh_2d**2))) * 0.4
+            depth_map["left_leg"] = dz_l_kn
+
+            l_an_2d = kpts[15]
+            d_l_shin_2d = float(np.linalg.norm(l_an_2d - l_kn_2d)) * scale
+            dz_l_an = float(np.sqrt(max(0.0, 0.40**2 - d_l_shin_2d**2))) * 0.4
+            depth_map["left_foot"] = dz_l_kn + dz_l_an
+
+            r_kn_2d = kpts[14]
+            d_r_thigh_2d = float(np.linalg.norm(r_kn_2d - r_hip_2d)) * scale
+            dz_r_kn = float(np.sqrt(max(0.0, 0.42**2 - d_r_thigh_2d**2))) * 0.4
+            depth_map["right_leg"] = dz_r_kn
+
+            r_an_2d = kpts[16]
+            d_r_shin_2d = float(np.linalg.norm(r_an_2d - r_kn_2d)) * scale
+            dz_r_an = float(np.sqrt(max(0.0, 0.40**2 - d_r_shin_2d**2))) * 0.4
+            depth_map["right_foot"] = dz_r_kn + dz_r_an
+
+        hips = np.array([0.0, 1.0, depth_map.get("hips", 0.0)], dtype=np.float32)
+        l_shoulder = pt(5, depth_map.get("left_shoulder", 0.0))
+        r_shoulder = pt(6, depth_map.get("right_shoulder", 0.0))
+        shoulders_mid = (l_shoulder + r_shoulder) * 0.5
+        neck = shoulders_mid
+        head = pt(0, depth_map.get("head", 0.0))
+
+        chest = hips + (shoulders_mid - hips) * 0.70
+        spine1 = hips + (shoulders_mid - hips) * 0.525
+        spine = hips + (shoulders_mid - hips) * 0.35
+
+        z_lh = depth_map.get("left_hand", 0.0)
+        z_rh = depth_map.get("right_hand", 0.0)
+
+        return {
+            "hips": hips,
+            "spine": spine,
+            "spine1": spine1,
+            "chest": chest,
+            "neck": neck,
+            "head": head,
+            "left_shoulder": l_shoulder,
+            "left_arm": l_shoulder,
+            "left_forearm": pt(7, depth_map.get("left_forearm", 0.0)),
+            "left_hand": pt(9, z_lh),
+            "right_shoulder": r_shoulder,
+            "right_arm": r_shoulder,
+            "right_forearm": pt(8, depth_map.get("right_forearm", 0.0)),
+            "right_hand": pt(10, z_rh),
+            "left_fingers": pt(99, z_lh + 0.01),     # left forefinger tip
+            "right_fingers": pt(120, z_rh + 0.01),   # right forefinger tip
+            "left_thumb": pt(95, z_lh + 0.02),       # left thumb tip
+            "right_thumb": pt(116, z_rh + 0.02),     # right thumb tip
+            "left_pinky": pt(111, z_lh - 0.01),      # left pinky tip
+            "right_pinky": pt(132, z_rh - 0.01),     # right pinky tip
+            "left_middle": pt(103, z_lh + 0.01),     # left middle tip
+            "right_middle": pt(124, z_rh + 0.01),    # right middle tip
+            "left_ring": pt(107, z_lh),              # left ring tip
+            "right_ring": pt(128, z_rh),             # right ring tip
+            "left_upleg": pt(11, depth_map.get("left_upleg", 0.0)),
+            "left_leg": pt(13, depth_map.get("left_leg", 0.0)),
+            "left_foot": pt(15, depth_map.get("left_foot", 0.0)),
+            "left_toe": pt(17, depth_map.get("left_foot", 0.0) + 0.10),
+            "right_upleg": pt(12, depth_map.get("right_upleg", 0.0)),
+            "right_leg": pt(14, depth_map.get("right_leg", 0.0)),
+            "right_foot": pt(16, depth_map.get("right_foot", 0.0)),
+            "right_toe": pt(20, depth_map.get("right_foot", 0.0) + 0.10),
+        }
+
+    def _extract_photo_dwpose(self, image_bgr: np.ndarray) -> Optional[Dict[str, np.ndarray]]:
+        """Extract pose from a single photo using DWPose WholeBody."""
+        detector = self._init_dwpose_detector()
+        if detector is None:
+            return None
+        try:
+            kpts, scores = detector(image_bgr)
+            if len(kpts) > 0 and scores[0].mean() > 0.2:
+                h, w = image_bgr.shape[:2]
+                return self._map_dwpose_landmarks(kpts[0], scores[0], w, h)
+        except Exception:
+            pass
+        return None
+
     def _extract_photo(self, image_path: Path) -> MotionSequence:
-        """Extract single-frame 3D pose from a photo."""
-        self.reporter.report("EXTRACT", 0.1, f"Analyzing photo: {image_path.name} on {self.device.upper()}")
+        """Extract single-frame 3D pose from a photo with dual-engine selection."""
+        self.reporter.report("EXTRACT", 0.1, f"Analyzing photo: {image_path.name} on {self.device.upper()} ({self.engine.upper()})")
         positions_3d = None
 
         try:
             import cv2
             img = cv2.imread(str(image_path))
             if img is not None:
-                model_path = self._ensure_pose_landmarker_model()
-                if model_path:
-                    try:
-                        import mediapipe as mp
-                        from mediapipe.tasks.python import BaseOptions
-                        from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode
+                # 1. Try DWPose if requested
+                if self.engine in ["dwpose", "rtmpose"]:
+                    positions_3d = self._extract_photo_dwpose(img)
 
-                        options = PoseLandmarkerOptions(
-                            base_options=BaseOptions(model_asset_path=str(model_path)),
-                            running_mode=RunningMode.IMAGE,
-                            num_poses=1,
-                            min_pose_detection_confidence=0.6,
-                            min_pose_presence_confidence=0.6,
-                            min_tracking_confidence=0.6,
-                        )
-                        with PoseLandmarker.create_from_options(options) as landmarker:
-                            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                            mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                            res = landmarker.detect(mp_img)
-                            if res.pose_world_landmarks and len(res.pose_world_landmarks) > 0:
-                                positions_3d = self._map_mediapipe_landmarks(res.pose_world_landmarks[0])
-                    except Exception:
-                        pass
+                # 2. Try MediaPipe if DWPose not selected or returned None
+                if positions_3d is None:
+                    model_path = self._ensure_pose_landmarker_model()
+                    if model_path:
+                        try:
+                            import mediapipe as mp
+                            from mediapipe.tasks.python import BaseOptions
+                            from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode
+
+                            options = PoseLandmarkerOptions(
+                                base_options=BaseOptions(model_asset_path=str(model_path)),
+                                running_mode=RunningMode.IMAGE,
+                                num_poses=1,
+                                min_pose_detection_confidence=0.6,
+                                min_pose_presence_confidence=0.6,
+                                min_tracking_confidence=0.6,
+                            )
+                            with PoseLandmarker.create_from_options(options) as landmarker:
+                                rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                                mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                                res = landmarker.detect(mp_img)
+                                if res.pose_world_landmarks and len(res.pose_world_landmarks) > 0:
+                                    positions_3d = self._map_mediapipe_landmarks(res.pose_world_landmarks[0])
+                        except Exception:
+                            pass
+
                 if positions_3d is None:
                     positions_3d = self._estimate_frame_3d_pose(img)
         except Exception:
@@ -188,7 +370,7 @@ class MotionExtractor:
         )
 
     def _extract_video(self, video_path: Path, max_duration_sec: float = 30.0) -> MotionSequence:
-        """Extract multi-frame 3D skeletal motion from a video clip."""
+        """Extract multi-frame 3D skeletal motion from a video clip with dual-engine routing."""
         try:
             import cv2
             cap = cv2.VideoCapture(str(video_path))
@@ -208,20 +390,137 @@ class MotionExtractor:
         max_frames = int(fps * max_duration_sec)
         frames_to_process = min(total_frames, max_frames) if total_frames > 0 else max_frames
 
+        from .rig_detector import CANONICAL_JOINTS
+        AUXILIARY_LANDMARKS = (
+            "left_fingers", "right_fingers", "left_thumb", "right_thumb", "left_pinky", "right_pinky",
+            "left_middle", "right_middle", "left_ring", "right_ring"
+        )
+        tracked_joints = list(CANONICAL_JOINTS) + [j for j in AUXILIARY_LANDMARKS if j not in CANONICAL_JOINTS]
+
+        if self.engine in ["dwpose", "rtmpose"]:
+            return self._extract_video_dwpose(
+                cap, video_path, fps, total_frames, frames_to_process, max_duration_sec, tracked_joints
+            )
+        else:
+            return self._extract_video_mediapipe(
+                cap, video_path, fps, total_frames, frames_to_process, max_duration_sec, tracked_joints
+            )
+
+    def _extract_video_dwpose(
+        self,
+        cap,
+        video_path: Path,
+        fps: float,
+        total_frames: int,
+        frames_to_process: int,
+        max_duration_sec: float,
+        tracked_joints: List[str],
+    ) -> MotionSequence:
+        """Extract multi-frame 3D motion using DWPose WholeBody (133 joints with 21-pt finger tracking)."""
+        detector = self._init_dwpose_detector()
+        if detector is None:
+            self.reporter.report("EXTRACT", 0.05, "Falling back to MediaPipe video tracking...")
+            return self._extract_video_mediapipe(
+                cap, video_path, fps, total_frames, frames_to_process, max_duration_sec, tracked_joints
+            )
+
         self.reporter.report(
             "EXTRACT",
             0.05,
-            f"Processing video ({frames_to_process} frames @ {fps:.1f} FPS) on {self.device.upper()}",
+            f"DWPose WholeBody AI tracking ({frames_to_process} frames @ {fps:.1f} FPS) on {self.device.upper()}",
         )
 
-        from .rig_detector import CANONICAL_JOINTS
-        AUXILIARY_LANDMARKS = ("left_fingers", "right_fingers", "left_thumb", "right_thumb", "left_pinky", "right_pinky")
-        tracked_joints = list(CANONICAL_JOINTS) + [j for j in AUXILIARY_LANDMARKS if j not in CANONICAL_JOINTS]
         all_frames_joints: Dict[str, List[np.ndarray]] = {j: [] for j in tracked_joints}
         root_trans_list: List[np.ndarray] = []
         timestamps: List[float] = []
 
-        # Setup MediaPipe PoseLandmarker in VIDEO mode if available
+        frame_idx = 0
+        last_valid_joints: Optional[Dict[str, np.ndarray]] = None
+
+        try:
+            while cap.isOpened() and frame_idx < frames_to_process:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                curr_time = frame_idx / fps
+                timestamps.append(curr_time)
+
+                frame_joints = None
+                try:
+                    kpts, scores = detector(frame)
+                    if len(kpts) > 0:
+                        best_idx = int(np.argmax([s.mean() for s in scores]))
+                        if scores[best_idx].mean() > 0.20:
+                            h, w = frame.shape[:2]
+                            frame_joints = self._map_dwpose_landmarks(kpts[best_idx], scores[best_idx], w, h)
+                            last_valid_joints = frame_joints
+                except Exception:
+                    pass
+
+                if frame_joints is None and last_valid_joints is not None:
+                    frame_joints = last_valid_joints
+                elif frame_joints is None:
+                    frame_joints = self._estimate_frame_3d_pose(frame)
+                    last_valid_joints = frame_joints
+
+                for j_name in tracked_joints:
+                    if j_name in frame_joints:
+                        all_frames_joints[j_name].append(frame_joints[j_name])
+
+                root_trans_list.append(frame_joints["hips"])
+                frame_idx += 1
+
+                if frame_idx % 5 == 0 or frame_idx == frames_to_process:
+                    progress = 0.05 + 0.90 * (frame_idx / frames_to_process)
+                    self.reporter.report(
+                        "EXTRACT",
+                        progress,
+                        f"DWPose WholeBody: Frame {frame_idx}/{frames_to_process} tracked (133 joints)",
+                    )
+        finally:
+            cap.release()
+
+        final_joint_positions = {
+            j_name: np.stack(pos_list, axis=0) if len(pos_list) > 0 else np.zeros((1, 3), dtype=np.float32)
+            for j_name, pos_list in all_frames_joints.items()
+        }
+        final_root = np.stack(root_trans_list, axis=0) if len(root_trans_list) > 0 else np.zeros((1, 3), dtype=np.float32)
+        actual_frame_count = len(timestamps)
+        duration = actual_frame_count / fps if fps > 0 else 0.0
+
+        self.reporter.report("EXTRACT", 1.0, f"DWPose WholeBody extraction complete: {actual_frame_count} frames processed.")
+
+        return MotionSequence(
+            fps=fps,
+            duration_sec=duration,
+            frame_count=actual_frame_count,
+            timestamps=np.array(timestamps, dtype=np.float32),
+            joint_positions=final_joint_positions,
+            root_translation=final_root,
+        )
+
+    def _extract_video_mediapipe(
+        self,
+        cap,
+        video_path: Path,
+        fps: float,
+        total_frames: int,
+        frames_to_process: int,
+        max_duration_sec: float,
+        tracked_joints: List[str],
+    ) -> MotionSequence:
+        """Extract multi-frame 3D skeletal motion using Google MediaPipe Pose."""
+        self.reporter.report(
+            "EXTRACT",
+            0.05,
+            f"MediaPipe Pose tracking ({frames_to_process} frames @ {fps:.1f} FPS) on {self.device.upper()}",
+        )
+
+        all_frames_joints: Dict[str, List[np.ndarray]] = {j: [] for j in tracked_joints}
+        root_trans_list: List[np.ndarray] = []
+        timestamps: List[float] = []
+
         landmarker = None
         model_path = self._ensure_pose_landmarker_model()
         if model_path:
@@ -246,6 +545,7 @@ class MotionExtractor:
         last_valid_joints: Optional[Dict[str, np.ndarray]] = None
 
         try:
+            import cv2
             while cap.isOpened() and frame_idx < frames_to_process:
                 ret, frame = cap.read()
                 if not ret:
@@ -258,6 +558,7 @@ class MotionExtractor:
                 frame_joints = None
                 if landmarker is not None:
                     try:
+                        import mediapipe as mp
                         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
                         res = landmarker.detect_for_video(mp_img, ts_ms)
@@ -267,7 +568,6 @@ class MotionExtractor:
                     except Exception:
                         pass
 
-                # If no landmark detected on this specific frame, interpolate from last known frame
                 if frame_joints is None and last_valid_joints is not None:
                     frame_joints = last_valid_joints
                 elif frame_joints is None:
@@ -286,7 +586,7 @@ class MotionExtractor:
                     self.reporter.report(
                         "EXTRACT",
                         progress,
-                        f"Frame {frame_idx}/{frames_to_process} tracked",
+                        f"MediaPipe: Frame {frame_idx}/{frames_to_process} tracked",
                     )
         finally:
             cap.release()
@@ -296,7 +596,6 @@ class MotionExtractor:
                 except Exception:
                     pass
 
-        # Stack into numpy arrays (F, 3)
         final_joint_positions = {
             j_name: np.stack(pos_list, axis=0) if len(pos_list) > 0 else np.zeros((1, 3), dtype=np.float32)
             for j_name, pos_list in all_frames_joints.items()

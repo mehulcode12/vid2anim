@@ -737,6 +737,9 @@ class UniversalTransferSolver:
             fa_key = f"{side}_forearm"
             i_key = f"{side}_fingers"
             p_key = f"{side}_pinky"
+            t_key = f"{side}_thumb"
+            m_key = f"{side}_middle"
+            r_key = f"{side}_ring"
 
             raw_curls: Dict[str, List[float]] = {
                 "index": [],
@@ -756,11 +759,25 @@ class UniversalTransferSolver:
                     # Independent extension metrics for index and pinky
                     ci = float(np.clip((0.54 - r_idx) / (0.54 - 0.32), 0.0, 1.0))
                     cp = float(np.clip((0.38 - r_pky) / (0.38 - 0.20), 0.0, 1.0))
-                    # Anatomical cascade for middle and ring fingers
-                    cm = 0.65 * ci + 0.35 * cp
-                    cr = 0.30 * ci + 0.70 * cp
-                    # Thumb coordinates overall hand contraction
-                    ct = 0.50 * ci + 0.50 * cp
+
+                    # Direct measurement for middle, ring, and thumb when available (e.g. DWPose 133 WholeBody)
+                    if m_key in joint_pos:
+                        r_mid = float(np.linalg.norm(joint_pos[m_key][f] - joint_pos[w_key][f])) / d_fa
+                        cm = float(np.clip((0.56 - r_mid) / (0.56 - 0.33), 0.0, 1.0))
+                    else:
+                        cm = 0.65 * ci + 0.35 * cp
+
+                    if r_key in joint_pos:
+                        r_rng = float(np.linalg.norm(joint_pos[r_key][f] - joint_pos[w_key][f])) / d_fa
+                        cr = float(np.clip((0.48 - r_rng) / (0.48 - 0.28), 0.0, 1.0))
+                    else:
+                        cr = 0.30 * ci + 0.70 * cp
+
+                    if t_key in joint_pos:
+                        r_thb = float(np.linalg.norm(joint_pos[t_key][f] - joint_pos[w_key][f])) / d_fa
+                        ct = float(np.clip((0.44 - r_thb) / (0.44 - 0.22), 0.0, 1.0))
+                    else:
+                        ct = 0.50 * ci + 0.50 * cp
 
                     raw_curls["index"].append(ci)
                     raw_curls["pinky"].append(cp)

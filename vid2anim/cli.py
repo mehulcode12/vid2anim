@@ -41,6 +41,7 @@ def main() -> None:
     extract_parser.add_argument("--input", "-i", required=True, help="Path to input photo or video (up to 30s)")
     extract_parser.add_argument("--output", "-o", default="outputs/motion_cache.npz", help="Output path for cached .npz")
     extract_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
+    extract_parser.add_argument("--engine", choices=["mediapipe", "dwpose"], default="mediapipe", help="Motion tracking engine (default: mediapipe)")
     extract_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds (default: 30.0)")
 
     # Command: retarget
@@ -61,6 +62,7 @@ def main() -> None:
     run_parser.add_argument("--output", "-o", default=None, help="Output animated .glb path (default: outputs/<name>_animated.glb)")
     run_parser.add_argument("--bvh", default=None, help="Optional output path to export standard .bvh mocap")
     run_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
+    run_parser.add_argument("--engine", choices=["mediapipe", "dwpose"], default="mediapipe", help="Motion tracking engine (default: mediapipe)")
     run_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds (default: 30.0)")
     run_parser.add_argument("--no-smooth", action="store_true", help="Disable temporal anti-jitter filter")
     run_parser.add_argument("--rest-pose", choices=["auto", "t_pose", "a_pose_30", "a_pose_45"], default="auto", help="Target model rest pose alignment (default: auto)")
@@ -104,7 +106,7 @@ def main() -> None:
 
     elif args.command == "extract":
         reporter = ProgressReporter()
-        extractor = MotionExtractor(device=args.device, reporter=reporter)
+        extractor = MotionExtractor(device=args.device, engine=args.engine, reporter=reporter)
         motion = extractor.extract_from_file(args.input, max_duration_sec=args.max_duration)
         motion.save_cache(args.output)
         print(f"\n[DONE] Motion saved to {args.output} ({motion.frame_count} frames, {motion.fps:.1f} FPS)")
@@ -131,6 +133,7 @@ def main() -> None:
             output_glb=Path(args.output) if args.output else None,
             output_bvh=Path(args.bvh) if args.bvh else None,
             device=args.device,
+            engine=args.engine,
             max_duration_sec=args.max_duration,
             smooth=not args.no_smooth,
             rest_pose=RestPoseType(args.rest_pose),

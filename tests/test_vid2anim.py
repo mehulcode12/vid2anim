@@ -153,3 +153,38 @@ def test_pipeline_validation():
     result = pipeline.execute()
     assert not result.success
     assert "does not exist" in result.error_message.lower()
+
+
+def test_dual_engine_motion_extractor():
+    from vid2anim.core.motion_extractor import MotionExtractor
+
+    # 1. Test engine=mediapipe initialization
+    ext_mp = MotionExtractor(engine="mediapipe")
+    assert ext_mp.engine == "mediapipe"
+
+    # 2. Test engine=dwpose initialization
+    ext_dw = MotionExtractor(engine="dwpose")
+    assert ext_dw.engine == "dwpose"
+
+    # 3. Test DWPose landmark mapping logic
+    dummy_kpts = np.zeros((133, 2), dtype=np.float32)
+    # Put hips at y=400, shoulders at y=200
+    dummy_kpts[11] = [300, 400]  # left hip
+    dummy_kpts[12] = [300, 400]  # right hip
+    dummy_kpts[5] = [280, 200]   # left shoulder
+    dummy_kpts[6] = [320, 200]   # right shoulder
+    dummy_kpts[99] = [260, 160]  # left forefinger tip
+    dummy_kpts[120] = [340, 160] # right forefinger tip
+    dummy_scores = np.ones(133, dtype=np.float32) * 0.9
+
+    mapped = ext_dw._map_dwpose_landmarks(dummy_kpts, dummy_scores, 640, 480)
+    assert "hips" in mapped
+    assert "left_fingers" in mapped
+    assert "right_fingers" in mapped
+    assert "left_middle" in mapped
+    assert "right_middle" in mapped
+    assert "left_thumb" in mapped
+    assert "right_thumb" in mapped
+    assert mapped["hips"].shape == (3,)
+    assert mapped["left_fingers"].shape == (3,)
+

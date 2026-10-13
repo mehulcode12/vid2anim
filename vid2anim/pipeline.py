@@ -29,6 +29,7 @@ class PipelineConfig:
     output_glb: Optional[Path] = None
     output_bvh: Optional[Path] = None
     device: str = "auto"
+    engine: str = "mediapipe"
     max_duration_sec: float = 30.0
     smooth: bool = True
     smoothness_factor: float = 1.0
@@ -75,8 +76,12 @@ class Vid2AnimPipeline:
                 warnings.append("Model is unrigged. Experimental auto-rigging fallback activated.")
 
             # 3. Extract 3D Motion
-            self.reporter.report("PIPELINE", 0.15, f"Extracting motion from {self.config.input_media.name}")
-            extractor = MotionExtractor(device=self.config.device, reporter=self.reporter)
+            self.reporter.report("PIPELINE", 0.15, f"Extracting motion from {self.config.input_media.name} via {self.config.engine.upper()}")
+            extractor = MotionExtractor(
+                device=self.config.device,
+                engine=self.config.engine,
+                reporter=self.reporter,
+            )
             raw_motion = extractor.extract_from_file(
                 self.config.input_media,
                 max_duration_sec=self.config.max_duration_sec,

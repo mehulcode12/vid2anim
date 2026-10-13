@@ -229,7 +229,75 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       filter: brightness(1.1);
       transform: translateY(-1px);
     }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .engine-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .engine-card {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .engine-card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      background: var(--bg-card-hover);
+    }
+    .engine-card.active {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.12);
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+    }
+    .engine-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .engine-title {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .engine-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .engine-card.active .engine-dot {
+      background: #6366f1;
+      box-shadow: 0 0 6px #6366f1;
+    }
+    .engine-tag {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .tag-fast {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .tag-precision {
+      background: rgba(139, 92, 246, 0.18);
+      color: #c084fc;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+    }
+    .engine-desc {
+      font-size: 0.73rem;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
     .status-card {
       padding: 14px;
       border-radius: 8px;
@@ -597,9 +665,37 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <input type="file" id="modelInput" accept=".glb,.gltf,.fbx,.obj" style="display:none">
       </div>
 
+      <!-- Tracking Engine Setting -->
+      <div class="input-group">
+        <label>3. Tracking AI Model <span>Dual-Engine</span></label>
+        <div class="engine-cards">
+          <div class="engine-card active" id="engineCardMediapipe" onclick="selectEngine('mediapipe')">
+            <div class="engine-card-header">
+              <div class="engine-title">
+                <span class="engine-dot"></span>
+                MediaPipe Pose
+              </div>
+              <span class="engine-tag tag-fast">Fast CPU</span>
+            </div>
+            <p class="engine-desc">30+ FPS real-time CPU tracking. Instant startup, lightweight memory footprint.</p>
+          </div>
+          <div class="engine-card" id="engineCardDwpose" onclick="selectEngine('dwpose')">
+            <div class="engine-card-header">
+              <div class="engine-title">
+                <span class="engine-dot"></span>
+                DWPose WholeBody
+              </div>
+              <span class="engine-tag tag-precision">133 Pts Deep AI</span>
+            </div>
+            <p class="engine-desc">133 whole-body keypoints + full 21-joint per-hand finger tracking via ONNX.</p>
+          </div>
+        </div>
+        <input type="hidden" id="selectedEngine" value="mediapipe">
+      </div>
+
       <!-- Device Setting -->
       <div class="input-group">
-        <label>3. Compute Engine</label>
+        <label>4. Compute Hardware</label>
         <select id="deviceSelect">
           <option value="cpu" selected>CPU (Lightweight / Stable)</option>
           <option value="cuda">GPU (NVIDIA CUDA Acceleration)</option>
@@ -1152,6 +1248,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       }
     });
 
+    function selectEngine(engine) {
+      document.getElementById('selectedEngine').value = engine;
+      document.getElementById('engineCardMediapipe').classList.toggle('active', engine === 'mediapipe');
+      document.getElementById('engineCardDwpose').classList.toggle('active', engine === 'dwpose');
+    }
+
     function checkReady() {
       document.getElementById('runBtn').disabled = !(selectedMedia && selectedModel);
     }
@@ -1175,6 +1277,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       formData.append('media', selectedMedia);
       formData.append('model', selectedModel);
       formData.append('device', document.getElementById('deviceSelect').value);
+      formData.append('engine', document.getElementById('selectedEngine').value);
 
       // Real-time progress poller
       const progressTimer = setInterval(async () => {
@@ -1346,6 +1449,7 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             media_info = fields["media"]
             model_info = fields["model"]
             device_str = fields.get("device", "auto")
+            engine_str = fields.get("engine", "mediapipe")
 
             def on_progress(step: str, progress: float, message: str) -> None:
                 if step == "EXTRACT":
@@ -1367,7 +1471,7 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             PIPELINE_PROGRESS["active"] = True
             PIPELINE_PROGRESS["percent"] = 5
             PIPELINE_PROGRESS["step"] = "EXTRACT"
-            PIPELINE_PROGRESS["message"] = "Initializing tracking pipeline..."
+            PIPELINE_PROGRESS["message"] = f"Initializing tracking pipeline ({engine_str.upper()})..."
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dir = Path(tmpdir)
@@ -1385,6 +1489,7 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                     target_model=model_path,
                     output_glb=output_glb,
                     device=device_str,
+                    engine=engine_str,
                     max_duration_sec=30.0,
                     smooth=True,
                 )

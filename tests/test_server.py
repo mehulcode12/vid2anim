@@ -34,6 +34,11 @@ def test_server_homepage_html(running_server):
     assert "vid2anim" in content
     assert "three.min.js" in content
     assert "viewport3d" in content
+    # Dual-Engine Model Selection UI
+    assert "engineCardMediapipe" in content
+    assert "engineCardDwpose" in content
+    assert "DWPose WholeBody" in content
+    assert "selectedEngine" in content
 
 
 def test_server_diagnostics_endpoint(running_server):
