@@ -133,24 +133,25 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       align-items: center;
       gap: 10px;
     }
-    .quick-demo-btn {
+    .github-link {
       padding: 5px 12px;
       border-radius: 8px;
       font-size: 0.78rem;
       font-weight: 600;
-      background: rgba(99, 102, 241, 0.12);
-      border: 1px solid rgba(99, 102, 241, 0.35);
-      color: #a5b4fc;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      text-decoration: none;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .quick-demo-btn:hover {
-      background: rgba(99, 102, 241, 0.25);
+    .github-link:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
       color: #ffffff;
-      box-shadow: 0 0 14px var(--accent-glow);
       transform: translateY(-1px);
     }
     .badge {
@@ -314,28 +315,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       cursor: pointer;
     }
     .file-pill-btn:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-    .sample-pill-btn {
-      width: 100%;
-      padding: 7px 10px;
-      border-radius: 6px;
-      font-size: 0.74rem;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      color: #94a3b8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .sample-pill-btn:hover {
-      background: rgba(99, 102, 241, 0.15);
-      border-color: rgba(99, 102, 241, 0.4);
-      color: #ffffff;
-    }
 
     /* Dual-Engine AI Cards */
     .engine-cards {
@@ -891,12 +870,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         vid2anim
       </div>
-      <div class="brand-pill">Studio Pro v2.5</div>
+      <div class="brand-pill">Open Source Studio</div>
     </div>
     <div class="header-actions">
-      <button class="quick-demo-btn" onclick="loadQuickDemo()" title="Instantly load sample video and 3D character for 1-click test">
-        <span>⚡</span> Quick Demo Preset
-      </button>
+      <a class="github-link" href="https://github.com/mehulcode12/vid2anim" target="_blank" rel="noopener noreferrer" title="View Source on GitHub">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        <span>GitHub</span>
+      </a>
       <div id="syncBadge" class="badge badge-sync active">
         <span class="badge-dot"></span>
         <span id="syncText">Dual-Viewport Synced</span>
@@ -927,9 +907,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           </div>
           <button class="file-pill-btn" onclick="clearMedia(event)">Clear</button>
         </div>
-        <button type="button" class="sample-pill-btn" onclick="loadSampleVideo()">
-          <span>⚡</span> Use "Phone Hold" Sample Clip
-        </button>
         <input type="file" id="mediaInput" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png" style="display:none">
       </div>
 
@@ -953,9 +930,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           </div>
           <button class="file-pill-btn" onclick="clearModel(event)">Clear</button>
         </div>
-        <button type="button" class="sample-pill-btn" onclick="loadSampleModel()">
-          <span>⚡</span> Use "Cyborg Oni" 3D Character
-        </button>
         <input type="file" id="modelInput" accept=".glb,.gltf,.fbx,.obj" style="display:none">
       </div>
 
@@ -1084,7 +1058,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           <div id="videoEmptyState" class="viewport-empty">
             <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
             <h4>Reference Footage</h4>
-            <p>Upload a video on the left or click "Quick Demo" to preview here</p>
+            <p>Upload or drag a video or photo onto the left panel to preview playback</p>
           </div>
           <video id="sourceVideo" playsinline muted style="display:none"></video>
           <img id="sourceImage" alt="Reference Image">
@@ -1114,7 +1088,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           <div id="modelEmptyState" class="viewport-empty">
             <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
             <h4>3D Character Viewport</h4>
-            <p>Upload character on the left or use the "Quick Demo" button</p>
+            <p>Upload or drag a rigged 3D character (GLB, GLTF, FBX) onto the left panel</p>
           </div>
           <div id="viewport3d"></div>
           <div class="viewport-hints">Left Click: Rotate | Right Click: Pan | Scroll: Zoom | Space: Play/Pause</div>
@@ -1653,36 +1627,33 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       checkReady();
     }
 
-    // One-click Sample Loaders
-    async function loadSampleVideo() {
-      try {
-        const res = await fetch('/api/samples/video');
-        if (!res.ok) throw new Error('Sample video not found on server');
-        const blob = await res.blob();
-        const file = new File([blob], '3 phone hold.mp4', { type: 'video/mp4' });
-        handleMediaFile(file);
-      } catch (e) {
-        alert('Could not load sample video: ' + e.message);
-      }
+    // HTML5 Drag and Drop Handlers
+    function wireDragDrop(zoneId, handleFn) {
+      const el = document.getElementById(zoneId);
+      if (!el) return;
+      ['dragenter', 'dragover'].forEach(n => {
+        el.addEventListener(n, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.classList.add('dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach(n => {
+        el.addEventListener(n, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.classList.remove('dragover');
+        });
+      });
+      el.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (dt && dt.files && dt.files[0]) {
+          handleFn(dt.files[0]);
+        }
+      });
     }
-
-    async function loadSampleModel() {
-      try {
-        const res = await fetch('/api/samples/model');
-        if (!res.ok) throw new Error('Sample model not found on server');
-        const blob = await res.blob();
-        const file = new File([blob], 'cyborg_oni.glb', { type: 'model/gltf-binary' });
-        handleModelFile(file);
-      } catch (e) {
-        alert('Could not load sample model: ' + e.message);
-      }
-    }
-
-    async function loadQuickDemo() {
-      await loadSampleVideo();
-      await loadSampleModel();
-      selectEngine('dwpose');
-    }
+    wireDragDrop('mediaZone', handleMediaFile);
+    wireDragDrop('modelZone', handleModelFile);
 
     function selectEngine(engine) {
       document.getElementById('selectedEngine').value = engine;
@@ -1857,32 +1828,6 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.end_headers()
             self.wfile.write(json.dumps(PIPELINE_PROGRESS).encode("utf-8"))
-
-        elif parsed_path.path == "/api/samples/video":
-            video_path = Path("vid/3 phone hold.mp4")
-            if video_path.exists():
-                data = video_path.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "video/mp4")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self.send_response(404)
-                self.end_headers()
-
-        elif parsed_path.path == "/api/samples/model":
-            model_path = Path("glb/cyborg_oni.glb")
-            if model_path.exists():
-                data = model_path.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "model/gltf-binary")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self.send_response(404)
-                self.end_headers()
 
         else:
             self.send_response(404)
