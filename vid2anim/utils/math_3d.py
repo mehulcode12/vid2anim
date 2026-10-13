@@ -12,7 +12,8 @@ import numpy as np
 def normalize(v: np.ndarray, eps: float = 1e-9) -> np.ndarray:
     """Normalize a 3D vector or array of vectors along the last axis."""
     norm = np.linalg.norm(v, axis=-1, keepdims=True)
-    return np.where(norm > eps, v / norm, np.zeros_like(v))
+    safe_norm = np.where(norm > eps, norm, 1.0)
+    return np.where(norm > eps, v / safe_norm, np.zeros_like(v))
 
 
 def quat_identity() -> np.ndarray:

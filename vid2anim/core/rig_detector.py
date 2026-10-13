@@ -239,7 +239,12 @@ def _classify_bones(bone_names: List[str]) -> Tuple[RigType, Dict[str, str]]:
 
     mixamo_count = sum(1 for b in bone_names if "mixamorig" in b.lower())
     rigify_count = sum(1 for b in bone_names if "def-" in b.lower())
-    vrm_count = sum(1 for b in bone_names if any(b.lower() == v.lower() for v in ["hips", "spine", "leftupperarm"]))
+    vrm_names = {
+        "hips", "spine", "chest", "neck", "head",
+        "leftupperarm", "rightupperarm", "leftlowerarm", "rightlowerarm",
+        "leftupperleg", "rightupperleg", "leftfoot", "rightfoot"
+    }
+    vrm_count = sum(1 for b in bone_names if b.lower() in vrm_names)
 
     for canonical, aliases in JOINT_ALIASES.items():
         for alias in aliases:
@@ -257,11 +262,11 @@ def _classify_bones(bone_names: List[str]) -> Tuple[RigType, Dict[str, str]]:
             if matched:
                 break
 
-    if mixamo_count >= 5:
+    if mixamo_count >= 4:
         rig_type = RigType.MIXAMO
-    elif rigify_count >= 5:
+    elif rigify_count >= 4:
         rig_type = RigType.BLENDER_RIGIFY
-    elif vrm_count >= 5:
+    elif vrm_count >= 4:
         rig_type = RigType.VRM_HUMANOID
     else:
         rig_type = RigType.GENERIC

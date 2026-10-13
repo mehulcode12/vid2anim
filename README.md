@@ -140,14 +140,28 @@ vid2anim retarget --motion outputs/motion.npz --model wizard.glb --output wizard
 
 ---
 
-## 🌐 Web UI & Automation Ready
+## 🌐 Interactive Web UI & 3D Viewport
+
+Launch the built-in local web application directly from the CLI:
+```bash
+vid2anim serve --port 8000
+```
+Open **`http://localhost:8000`** in any web browser to:
+- 🖱️ **Drag and drop** your video/photo and 3D character (`.glb`, `.fbx`, `.obj`).
+- ⚡ **Toggle CPU vs GPU** inference.
+- 🕺 **Preview animation live** in the interactive Three.js 3D viewport (orbit, rotate, play/pause).
+- 💾 **Download** the resulting animated `.glb` with one click!
+
+---
+
+## ⚡ Automation & Streaming Hooks
 
 The CLI features `--progress-jsonl <file.jsonl>` which emits structured event milestones:
 ```bash
 vid2anim run --input clip.mp4 --model bot.glb --progress-jsonl status.jsonl
 ```
 This enables effortless integration with:
-- **FastAPI / Flask backends**
+- **FastAPI / REST backend services**
 - **React / Next.js / Three.js web viewers**
 - **Blender 4.2+ extensions**
 

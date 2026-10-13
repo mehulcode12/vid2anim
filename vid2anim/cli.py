@@ -49,6 +49,11 @@ def main() -> None:
     retarget_parser.add_argument("--model", required=True, help="Path to 3D character model (.glb)")
     retarget_parser.add_argument("--output", "-o", default="outputs/animated_character.glb", help="Output path for animated .glb")
 
+    # Command: serve (Web UI)
+    serve_parser = subparsers.add_parser("serve", help="Launch local Web UI & API server with 3D viewer.")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Host address (default: 127.0.0.1)")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
+
     # Command: run (End-to-End)
     run_parser = subparsers.add_parser("run", help="Full pipeline: media + 3D model -> animated .glb")
     run_parser.add_argument("--input", "-i", required=True, help="Input video or photo (.mp4, .jpg, etc.)")
@@ -90,6 +95,11 @@ def main() -> None:
             for w in analysis.warnings:
                 print(f"    [!] {w}")
         print("=" * 60)
+        sys.exit(0)
+
+    elif args.command == "serve":
+        from .server import start_server
+        start_server(host=args.host, port=args.port)
         sys.exit(0)
 
     elif args.command == "extract":

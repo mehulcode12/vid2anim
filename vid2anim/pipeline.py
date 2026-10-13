@@ -82,14 +82,25 @@ class Vid2AnimPipeline:
                 max_duration_sec=self.config.max_duration_sec,
             )
 
-            # 4. Temporal Smoothing
-            motion = raw_motion
-            if self.config.smooth and raw_motion.frame_count > 2:
+            # 4. Outlier Sanitization & Gap Interpolation
+            from .core.interpolation import sanitize_and_interpolate_motion
+            from .core.scale_normalizer import ScaleNormalizer
+
+            sanitized_motion = sanitize_and_interpolate_motion(raw_motion)
+
+            # Scale trajectory to model coordinate frame
+            scale_normalizer = ScaleNormalizer()
+            model_scale = scale_normalizer.estimate_model_scale(rig_info)
+            scaled_motion = scale_normalizer.scale_trajectory(sanitized_motion, model_scale)
+
+            # 5. Temporal Smoothing (Anti-Jitter Filter)
+            motion = scaled_motion
+            if self.config.smooth and scaled_motion.frame_count > 2:
                 self.reporter.report("PIPELINE", 0.60, "Applying temporal anti-jitter filter...")
                 smoother = TemporalMotionSmoother(position_smoothness=self.config.smoothness_factor)
-                motion = smoother.smooth_motion_positions(raw_motion)
+                motion = smoother.smooth_motion_positions(scaled_motion)
 
-            # 5. Universal Retargeting
+            # 6. Universal Retargeting
             self.reporter.report("PIPELINE", 0.70, f"Retargeting onto {rig_info.rig_type.value} armature...")
             retargeter = UniversalRetargeter(reporter=self.reporter)
             animation = retargeter.retarget(motion, rig_info)
@@ -98,7 +109,7 @@ class Vid2AnimPipeline:
                 smoother = TemporalMotionSmoother()
                 animation = smoother.smooth_animation_rotations(animation)
 
-            # 6. Export Skinned Animated GLB
+            # 7. Export Skinned Animated GLB
             self.reporter.report("PIPELINE", 0.88, f"Exporting animated GLB to: {out_glb.name}")
             exporter = GLBAnimationExporter(reporter=self.reporter)
             exporter.export_animated_glb(self.config.target_model, animation, rig_info, out_glb)
