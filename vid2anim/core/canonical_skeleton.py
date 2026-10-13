@@ -13,9 +13,11 @@ import numpy as np
 
 from .kinematics import (
     human_to_canonical,
+    matrix_to_quat_xyzw,
     normalize,
     orthonormal_frame,
     pick_closest_aim_twist,
+    quat_xyzw_to_matrix,
     rotation_aligning,
 )
 from .motion_extractor import MotionSequence
@@ -200,16 +202,25 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["chest"] = r_chest_local
         r_world["chest"] = r_chest_world
 
-        # Neck & Head
+        # Neck & Head (cervical chain sharing orientation smoothly across neck 55% & head 45%)
         p_head = get_pos("head", f)
         v_neck = p_head - p_neck
         d_neck_in_anim = r_world["chest"].T @ normalize(v_neck, np.array([0.0, 1.0, 0.0]))
-        r_neck = rotation_aligning(CANONICAL_REST_LOCAL_DIR["neck"], d_neck_in_anim)
+        r_delta_full = rotation_aligning(CANONICAL_REST_LOCAL_DIR["neck"], d_neck_in_anim)
+        q_delta = matrix_to_quat_xyzw(r_delta_full)
+        half_angle = float(np.arccos(np.clip(q_delta[3], -1.0, 1.0)))
+        frac_half = half_angle * 0.55
+        sin_h = float(np.sin(half_angle))
+        u_axis = q_delta[:3] / sin_h if abs(sin_h) > 1e-6 else np.array([0.0, 1.0, 0.0])
+        q_frac = np.array([u_axis[0] * np.sin(frac_half), u_axis[1] * np.sin(frac_half), u_axis[2] * np.sin(frac_half), np.cos(frac_half)], dtype=np.float64)
+        r_neck = quat_xyzw_to_matrix(q_frac)
         r_anim["neck"] = r_neck
         r_world["neck"] = r_world["chest"] @ r_neck
 
-        r_anim["head"] = np.eye(3, dtype=np.float64)
-        r_world["head"] = r_world["neck"]
+        d_head_in_anim = r_world["neck"].T @ normalize(v_neck, np.array([0.0, 1.0, 0.0]))
+        r_head = rotation_aligning(CANONICAL_REST_LOCAL_DIR["head"], d_head_in_anim)
+        r_anim["head"] = r_head
+        r_world["head"] = r_world["neck"] @ r_head
 
         # 3. Left Arm Chain (chest -> left_shoulder -> left_arm -> left_forearm -> left_hand)
         p_l_elbow = get_pos("left_forearm", f)
