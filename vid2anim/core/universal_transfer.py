@@ -686,6 +686,38 @@ class UniversalTransferSolver:
         # Fully determined bones where twist continuity must not override direct 3D orientation
         fully_determined: Set[str] = {"hips", "chest", "left_foot", "right_foot", "left_toe", "right_toe", "spine1"}
 
+        # Precompute per-side dynamic finger curl trajectories with temporal filtering
+        curl_dyn_by_side: Dict[str, np.ndarray] = {
+            "left": np.zeros(num_frames, dtype=np.float64),
+            "right": np.zeros(num_frames, dtype=np.float64),
+        }
+        for side in ["left", "right"]:
+            w_key = f"{side}_hand"
+            fa_key = f"{side}_forearm"
+            i_key = f"{side}_fingers"
+            p_key = f"{side}_pinky"
+
+            if w_key in joint_pos and i_key in joint_pos:
+                raw_curls = []
+                for f in range(num_frames):
+                    d_fa = float(np.linalg.norm(joint_pos[w_key][f] - joint_pos[fa_key][f])) if fa_key in joint_pos else 0.22
+                    d_fa = max(d_fa, 0.10)
+                    r_idx = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f])) / d_fa
+                    r_pky = float(np.linalg.norm(joint_pos[p_key][f] - joint_pos[w_key][f])) / d_fa if p_key in joint_pos else r_idx
+                    # Maximum hand extension span across index and pinky (scaled to match index reach)
+                    span = max(r_idx, r_pky * 1.35)
+                    # Natural calibrated extension thresholds:
+                    # Extended/open hand is span >= 0.52 (curl = 0.0)
+                    # Tightly clenched fist is span <= 0.33 (curl = 1.0)
+                    c = float(np.clip((0.52 - span) / (0.52 - 0.33), 0.0, 1.0))
+                    raw_curls.append(c)
+
+                # Smooth with EMA filter (alpha=0.35) to eliminate single-frame tracking noise
+                s = raw_curls[0] if raw_curls else 0.0
+                for f, c in enumerate(raw_curls):
+                    s = 0.35 * c + 0.65 * s
+                    curl_dyn_by_side[side][f] = s
+
         # Solve per-frame hierarchical rotations with Forward Kinematics propagation
         for f in range(num_frames):
             # Local rotations and translations for all nodes this frame (initialized to rest pose)
@@ -926,35 +958,17 @@ class UniversalTransferSolver:
 
             # Procedural finger posing and dynamic closed fist flexion
             for f_idx, side, phalanx, is_thumb in self.finger_bones:
-                w_key = f"{side}_hand"
-                fa_key = f"{side}_forearm"
-                i_key = f"{side}_fingers"
-                p_key = f"{side}_pinky"
-                t_key = f"{side}_thumb"
-
-                if w_key in joint_pos and i_key in joint_pos:
-                    d_fa = float(np.linalg.norm(joint_pos[w_key][f] - joint_pos[fa_key][f])) if fa_key in joint_pos else 0.22
-                    d_fa = max(d_fa, 0.10)
-                    r_idx = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f])) / d_fa
-                    r_pky = float(np.linalg.norm(joint_pos[p_key][f] - joint_pos[w_key][f])) / d_fa if p_key in joint_pos else r_idx
-                    r_th = float(np.linalg.norm(joint_pos[t_key][f] - joint_pos[w_key][f])) / d_fa if t_key in joint_pos else r_idx
-
-                    # Weighted fist closure indicator: pinky & thumb tuck in tightly into palm
-                    ratio = 0.50 * r_pky + 0.30 * r_th + 0.20 * r_idx
-                    # Closed fist is <= 0.38, open hand is >= 0.68
-                    curl_dyn = float(np.clip((0.68 - ratio) / 0.30, 0.0, 1.0))
-                else:
-                    curl_dyn = 0.0
+                curl_dyn = float(curl_dyn_by_side.get(side, np.zeros(num_frames))[f])
 
                 if is_thumb:
-                    deg = 8.0 + 52.0 * curl_dyn
+                    deg = 4.0 + 54.0 * curl_dyn
                 else:
                     if phalanx == 1:
-                        deg = 8.0 + 58.0 * curl_dyn
+                        deg = 4.0 + 60.0 * curl_dyn
                     elif phalanx == 2:
-                        deg = 10.0 + 72.0 * curl_dyn
+                        deg = 6.0 + 74.0 * curl_dyn
                     else:
-                        deg = 8.0 + 50.0 * curl_dyn
+                        deg = 4.0 + 52.0 * curl_dyn
                 rad = float(np.radians(deg))
 
                 axis_curl = self.finger_curl_axes.get(f_idx, np.array([0.0, 0.0, 1.0]))
