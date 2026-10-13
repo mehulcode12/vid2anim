@@ -35,6 +35,7 @@ class GLBAnimationExporter:
         rig_info: RigAnalysis,
         output_glb_path: str | Path,
         clip_name: str = "Vid2Anim_Motion",
+        replace_existing: bool = True,
     ) -> Path:
         """Inject baked animation into the target GLB model and write out the result."""
         src = Path(source_model_path)
@@ -212,12 +213,19 @@ class GLBAnimationExporter:
                 },
             })
 
-        # Append animation definition
-        gltf_data["animations"].append({
+        new_clip = {
             "name": clip_name,
             "channels": channels,
             "samplers": samplers,
-        })
+        }
+        if replace_existing:
+            # Overwrite existing animations so the newly retargeted motion is the sole and active track.
+            # This prevents pre-existing animations (e.g. from Sketchfab, Mixamo, or CC) from masking
+            # the retargeted motion in 3D viewers and engines.
+            gltf_data["animations"] = [new_clip]
+        else:
+            # Prepend at index 0 so Vid2Anim_Motion is always the default active track
+            gltf_data["animations"].insert(0, new_clip)
 
         # Update primary buffer size in JSON
         if "buffers" in gltf_data and len(gltf_data["buffers"]) > 0:

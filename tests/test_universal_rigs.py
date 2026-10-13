@@ -198,3 +198,62 @@ def test_auto_rest_pose_detection():
     assert not np.allclose(q_offset_a, [0.0, 0.0, 0.0, 1.0])
     assert q_offset_a[2] > 0.0  # Positive Z-axis rotation for left arm up
 
+
+def test_replace_existing_animations_in_glb(tmp_path):
+    """Verify that models with pre-existing animation clips have them overridden by Vid2Anim_Motion."""
+    import json
+    from vid2anim.core.glb_writer import GLBAnimationExporter
+    from vid2anim.core.retargeter import UniversalRetargeter
+    from vid2anim.core.rig_detector import inspect_model
+    from vid2anim.utils.fixtures import create_synthetic_humanoid_glb, create_synthetic_motion_sequence
+
+    # Create model with an existing animation
+    model_path = tmp_path / "pre_animated.glb"
+    create_synthetic_humanoid_glb(model_path)
+
+    # Inject an initial dummy animation
+    with open(model_path, "rb") as f:
+        header = f.read(12)
+        json_len = int.from_bytes(f.read(4), "little")
+        f.read(4)
+        gltf = json.loads(f.read(json_len).decode("utf-8"))
+        bin_data = f.read()
+
+    gltf["animations"] = [{"name": "Old_Sketchfab_Idle", "channels": [], "samplers": []}]
+    new_json = json.dumps(gltf).encode("utf-8")
+    rem = len(new_json) % 4
+    if rem != 0:
+        new_json += b" " * (4 - rem)
+
+    with open(model_path, "wb") as f:
+        f.write(b"glTF")
+        f.write((2).to_bytes(4, "little"))
+        total = 12 + 8 + len(new_json) + len(bin_data)
+        f.write(total.to_bytes(4, "little"))
+        f.write(len(new_json).to_bytes(4, "little"))
+        f.write(b"JSON")
+        f.write(new_json)
+        f.write(bin_data)
+
+    # Retarget and export with Vid2Anim
+    rig_info = inspect_model(model_path)
+    motion = create_synthetic_motion_sequence(frames=10, fps=30.0)
+    retargeter = UniversalRetargeter()
+    anim = retargeter.retarget(motion, rig_info)
+
+    out_path = tmp_path / "result_animated.glb"
+    exporter = GLBAnimationExporter()
+    exporter.export_animated_glb(model_path, anim, rig_info, out_path, replace_existing=True)
+
+    # Verify that the exported GLB has Vid2Anim_Motion as the active sole animation
+    with open(out_path, "rb") as f:
+        f.seek(12)
+        jlen = int.from_bytes(f.read(4), "little")
+        f.read(4)
+        out_gltf = json.loads(f.read(jlen).decode("utf-8"))
+
+    anims = out_gltf.get("animations", [])
+    assert len(anims) == 1
+    assert anims[0]["name"] == "Vid2Anim_Motion"
+
+

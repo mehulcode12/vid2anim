@@ -237,6 +237,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       </div>
       <div id="viewport3d"></div>
       <div class="overlay-controls" id="playbackControls" style="display:none">
+        <select id="animSelect" onchange="switchAnimation(this.value)" style="display:none; background:#161b22; color:#c9d1d9; border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px;"></select>
         <button onclick="togglePlayback()">Play / Pause</button>
         <button onclick="resetCamera()">Reset View</button>
       </div>
@@ -246,6 +247,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <script>
     let scene, camera, renderer, controls, mixer, clock, currentAction;
     let selectedMedia = null, selectedModel = null, lastResultBlobUrl = null;
+    let currentGltfClips = [];
 
     // Init Three.js Scene
     function init3D() {
@@ -302,18 +304,50 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
       const loader = new THREE.GLTFLoader();
       loader.load(url, (gltf) => {
-        // Clear previous model
+        // Clear previous mixer and scene objects
+        if (mixer) {
+          mixer.stopAllAction();
+        }
         scene.children.filter(c => c.isGroup || c.isMesh).forEach(c => scene.remove(c));
 
         const model = gltf.scene;
         scene.add(model);
 
-        if (gltf.animations && gltf.animations.length > 0) {
+        currentGltfClips = gltf.animations || [];
+        if (currentGltfClips.length > 0) {
           mixer = new THREE.AnimationMixer(model);
-          currentAction = mixer.clipAction(gltf.animations[0]);
+
+          // Populate clip switcher
+          const animSelect = document.getElementById('animSelect');
+          if (animSelect) {
+            animSelect.innerHTML = '';
+            currentGltfClips.forEach((clip, idx) => {
+              const opt = document.createElement('option');
+              opt.value = idx;
+              opt.textContent = (clip.name || `Track ${idx + 1}`) + ` (${clip.duration.toFixed(1)}s)`;
+              animSelect.appendChild(opt);
+            });
+            animSelect.style.display = currentGltfClips.length > 1 ? 'inline-block' : 'none';
+          }
+
+          // Prioritize newly retargeted Vid2Anim_Motion clip
+          const targetClip = currentGltfClips.find(a => a.name === 'Vid2Anim_Motion') || currentGltfClips[0];
+          const targetIdx = currentGltfClips.indexOf(targetClip);
+          if (animSelect && targetIdx >= 0) {
+            animSelect.value = targetIdx;
+          }
+
+          currentAction = mixer.clipAction(targetClip);
           currentAction.play();
         }
       });
+    }
+
+    function switchAnimation(idx) {
+      if (!mixer || !currentGltfClips[idx]) return;
+      mixer.stopAllAction();
+      currentAction = mixer.clipAction(currentGltfClips[idx]);
+      currentAction.play();
     }
 
     function togglePlayback() {
