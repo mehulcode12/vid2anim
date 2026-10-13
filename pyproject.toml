@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vid2anim"
+version = "0.1.0"
+description = "Animate any 3D character model from video or photos using AI motion capture and universal retargeting."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "vid2anim contributors"}
+]
+keywords = [
+    "motion-capture",
+    "retargeting",
+    "animation",
+    "3d",
+    "mixamo",
+    "vrm",
+    "gltf",
+    "glb",
+    "computer-vision",
+    "deep-learning"
+]
+dependencies = [
+    "numpy>=1.22.0",
+    "scipy>=1.9.0",
+    "opencv-python>=4.7.0",
+    "mediapipe>=0.10.0; python_version < '3.13'",
+    "tqdm>=4.64.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+]
+full = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "trimesh>=4.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+vid2anim = "vid2anim.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vid2anim*"]

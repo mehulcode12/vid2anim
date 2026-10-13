@@ -1,0 +1,106 @@
+"""Basic test suite for vid2anim core modules."""
+
+import tempfile
+from pathlib import Path
+import numpy as np
+
+from vid2anim.core.auto_rig import fit_skeleton_to_mesh
+from vid2anim.core.motion_extractor import MotionSequence
+from vid2anim.core.rig_detector import _classify_bones
+from vid2anim.utils.diagnostics import get_system_diagnostics
+from vid2anim.utils.math_3d import (
+    continue_quaternion,
+    normalize,
+    quat_identity,
+    quat_multiply,
+    rotation_between_vectors,
+)
+
+
+def test_math_quaternions():
+    # Test normalization
+    v = np.array([3.0, 4.0, 0.0], dtype=np.float32)
+    v_norm = normalize(v)
+    assert np.isclose(np.linalg.norm(v_norm), 1.0)
+
+    # Test rotation between identical vectors
+    q_id = rotation_between_vectors(v_norm, v_norm)
+    assert np.allclose(q_id, quat_identity())
+
+    # Test 90 degree rotation
+    v_x = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    v_y = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+    q_xy = rotation_between_vectors(v_x, v_y)
+    assert np.isclose(np.linalg.norm(q_xy), 1.0)
+
+    # Test continue_quaternion
+    q1 = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+    q_neg = np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    q_fixed = continue_quaternion(q_neg, q1)
+    assert np.allclose(q_fixed, q1)
+
+
+def test_diagnostics():
+    diag = get_system_diagnostics()
+    assert "os" in diag
+    assert "cpu_count" in diag
+    assert diag["cpu_count"] >= 1
+    assert "cuda_available" in diag
+    assert diag["recommended_device"] in ["cpu", "cuda"]
+
+
+def test_bone_classification():
+    mixamo_bones = [
+        "mixamorig:Hips",
+        "mixamorig:Spine",
+        "mixamorig:Neck",
+        "mixamorig:Head",
+        "mixamorig:LeftArm",
+        "mixamorig:RightArm",
+    ]
+    rig_type, mapping = _classify_bones(mixamo_bones)
+    assert rig_type.value == "mixamo"
+    assert "hips" in mapping
+    assert mapping["hips"] == "mixamorig:Hips"
+
+
+def test_auto_rigging():
+    # Synthetic cube vertices
+    verts = np.array([
+        [-0.5, 0.0, -0.5],
+        [0.5, 0.0, -0.5],
+        [0.5, 1.8, -0.5],
+        [-0.5, 1.8, -0.5],
+        [-0.5, 0.0, 0.5],
+        [0.5, 0.0, 0.5],
+        [0.5, 1.8, 0.5],
+        [-0.5, 1.8, 0.5],
+    ], dtype=np.float32)
+
+    auto_rig = fit_skeleton_to_mesh(verts)
+    assert len(auto_rig.joint_positions) == 19
+    assert auto_rig.vertex_joints.shape == (8, 4)
+    assert auto_rig.vertex_weights.shape == (8, 4)
+    # Weights should sum to 1.0
+    weight_sums = np.sum(auto_rig.vertex_weights, axis=-1)
+    assert np.allclose(weight_sums, 1.0)
+
+
+def test_motion_cache_io():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir) / "motion_test.npz"
+        motion = MotionSequence(
+            fps=30.0,
+            duration_sec=1.0,
+            frame_count=30,
+            timestamps=np.linspace(0.0, 1.0, 30, dtype=np.float32),
+            joint_positions={"hips": np.zeros((30, 3), dtype=np.float32)},
+            root_translation=np.zeros((30, 3), dtype=np.float32),
+        )
+        motion.save_cache(tmp_path)
+        assert tmp_path.exists()
+
+        loaded = MotionSequence.load_cache(tmp_path)
+        assert loaded.fps == 30.0
+        assert loaded.frame_count == 30
+        assert "hips" in loaded.joint_positions
