@@ -43,6 +43,7 @@ def test_server_homepage_html(running_server):
     assert "rigGuideModal" in content
     assert "openRigGuideModal" in content
     assert "Supported Formats & Rigs" in content
+    assert "Blender Add-on" in content
 
 
 def test_server_diagnostics_endpoint(running_server):
