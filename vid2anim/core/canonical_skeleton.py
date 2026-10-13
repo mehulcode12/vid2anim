@@ -150,7 +150,13 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
     # Pre-extract joint trajectories in canonical space
     def get_pos(j_name: str, f: int) -> np.ndarray:
         if j_name in motion.joint_positions:
-            raw = motion.joint_positions[j_name][f]
+            arr = motion.joint_positions[j_name]
+            if len(arr) > f:
+                raw = arr[f]
+            elif len(arr) > 0:
+                raw = arr[-1]
+            else:
+                return np.zeros(3, dtype=np.float64)
             return human_to_canonical(raw)
         return np.zeros(3, dtype=np.float64)
 

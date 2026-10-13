@@ -300,3 +300,60 @@ def test_full_pipeline_on_synthetic_humanoid():
         assert out_bvh.exists()
         assert result.frame_count >= 1
         assert result.elapsed_time_sec >= 0.0
+
+
+def test_mediapipe_finger_landmarks_completeness():
+    """MediaPipe landmark mapper must produce complete auxiliary finger keys (including middle & ring)."""
+    from vid2anim.core.motion_extractor import MotionExtractor
+
+    extractor = MotionExtractor()
+    default_frame = extractor._generate_default_human_frame()
+
+    required_fingers = [
+        "left_fingers", "right_fingers",
+        "left_thumb", "right_thumb",
+        "left_pinky", "right_pinky",
+        "left_middle", "right_middle",
+        "left_ring", "right_ring",
+    ]
+    for key in required_fingers:
+        assert key in default_frame, f"Missing finger key in default frame: {key}"
+        assert default_frame[key].shape == (3,)
+
+
+def test_pipeline_mismatched_joint_array_lengths_resilience():
+    """Sanitizer and retargeter must not crash with index out of bounds when arrays have irregular lengths."""
+    from vid2anim.core.interpolation import sanitize_and_interpolate_motion
+    from vid2anim.core.universal_transfer import UniversalTransferSolver
+    from vid2anim.core.canonical_skeleton import solve_canonical_motion
+
+    n_frames = 50
+    # Simulate a corrupted motion sequence where some joints have shape (1, 3) or (10, 3) instead of (50, 3)
+    joint_positions = {
+        "hips": np.zeros((n_frames, 3), dtype=np.float32),
+        "neck": np.ones((n_frames, 3), dtype=np.float32),
+        "left_hand": np.ones((n_frames, 3), dtype=np.float32),
+        "right_hand": np.ones((n_frames, 3), dtype=np.float32),
+        "left_fingers": np.ones((n_frames, 3), dtype=np.float32),
+        "left_middle": np.zeros((1, 3), dtype=np.float32),  # Single frame artifact
+        "right_ring": np.zeros((5, 3), dtype=np.float32),   # Partial frames
+    }
+
+    raw_motion = MotionSequence(
+        fps=25.0,
+        duration_sec=2.0,
+        frame_count=n_frames,
+        timestamps=np.linspace(0, 2.0, n_frames, dtype=np.float32),
+        joint_positions=joint_positions,
+        root_translation=np.zeros((n_frames, 3), dtype=np.float32),
+    )
+
+    # Must sanitize cleanly without raising IndexError
+    sanitized = sanitize_and_interpolate_motion(raw_motion)
+    for k, v in sanitized.joint_positions.items():
+        assert v.shape == (n_frames, 3), f"Joint {k} failed to shape to ({n_frames}, 3), got {v.shape}"
+
+    # Canonical motion solver must also handle without index out of bounds
+    canonical = solve_canonical_motion(sanitized)
+    assert canonical.frame_count == n_frames
+

@@ -749,32 +749,34 @@ class UniversalTransferSolver:
                 "thumb": [],
             }
 
-            if w_key in joint_pos and i_key in joint_pos:
+            if w_key in joint_pos and i_key in joint_pos and len(joint_pos[w_key]) > 0 and len(joint_pos[i_key]) > 0:
                 for f in range(num_frames):
-                    d_fa = float(np.linalg.norm(joint_pos[w_key][f] - joint_pos[fa_key][f])) if fa_key in joint_pos else 0.22
+                    w_pos = joint_pos[w_key][min(f, len(joint_pos[w_key]) - 1)]
+                    i_pos = joint_pos[i_key][min(f, len(joint_pos[i_key]) - 1)]
+                    d_fa = float(np.linalg.norm(w_pos - joint_pos[fa_key][min(f, len(joint_pos[fa_key]) - 1)])) if (fa_key in joint_pos and len(joint_pos[fa_key]) > 0) else 0.22
                     d_fa = max(d_fa, 0.10)
-                    r_idx = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f])) / d_fa
-                    r_pky = float(np.linalg.norm(joint_pos[p_key][f] - joint_pos[w_key][f])) / d_fa if p_key in joint_pos else r_idx
+                    r_idx = float(np.linalg.norm(i_pos - w_pos)) / d_fa
+                    r_pky = float(np.linalg.norm(joint_pos[p_key][min(f, len(joint_pos[p_key]) - 1)] - w_pos)) / d_fa if (p_key in joint_pos and len(joint_pos[p_key]) > 0) else r_idx
 
                     # Independent extension metrics for index and pinky
                     ci = float(np.clip((0.54 - r_idx) / (0.54 - 0.32), 0.0, 1.0))
                     cp = float(np.clip((0.38 - r_pky) / (0.38 - 0.20), 0.0, 1.0))
 
                     # Direct measurement for middle, ring, and thumb when available (e.g. DWPose 133 WholeBody)
-                    if m_key in joint_pos:
-                        r_mid = float(np.linalg.norm(joint_pos[m_key][f] - joint_pos[w_key][f])) / d_fa
+                    if m_key in joint_pos and len(joint_pos[m_key]) > 0:
+                        r_mid = float(np.linalg.norm(joint_pos[m_key][min(f, len(joint_pos[m_key]) - 1)] - w_pos)) / d_fa
                         cm = float(np.clip((0.56 - r_mid) / (0.56 - 0.33), 0.0, 1.0))
                     else:
                         cm = 0.65 * ci + 0.35 * cp
 
-                    if r_key in joint_pos:
-                        r_rng = float(np.linalg.norm(joint_pos[r_key][f] - joint_pos[w_key][f])) / d_fa
+                    if r_key in joint_pos and len(joint_pos[r_key]) > 0:
+                        r_rng = float(np.linalg.norm(joint_pos[r_key][min(f, len(joint_pos[r_key]) - 1)] - w_pos)) / d_fa
                         cr = float(np.clip((0.48 - r_rng) / (0.48 - 0.28), 0.0, 1.0))
                     else:
                         cr = 0.30 * ci + 0.70 * cp
 
-                    if t_key in joint_pos:
-                        r_thb = float(np.linalg.norm(joint_pos[t_key][f] - joint_pos[w_key][f])) / d_fa
+                    if t_key in joint_pos and len(joint_pos[t_key]) > 0:
+                        r_thb = float(np.linalg.norm(joint_pos[t_key][min(f, len(joint_pos[t_key]) - 1)] - w_pos)) / d_fa
                         ct = float(np.clip((0.44 - r_thb) / (0.44 - 0.22), 0.0, 1.0))
                     else:
                         ct = 0.50 * ci + 0.50 * cp

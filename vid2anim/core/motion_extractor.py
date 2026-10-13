@@ -464,11 +464,21 @@ class MotionExtractor:
                     frame_joints = self._estimate_frame_3d_pose(frame)
                     last_valid_joints = frame_joints
 
+                default_frame = self._generate_default_human_frame()
                 for j_name in tracked_joints:
-                    if j_name in frame_joints:
+                    if frame_joints and j_name in frame_joints:
                         all_frames_joints[j_name].append(frame_joints[j_name])
+                    elif last_valid_joints and j_name in last_valid_joints:
+                        all_frames_joints[j_name].append(last_valid_joints[j_name])
+                    else:
+                        all_frames_joints[j_name].append(default_frame.get(j_name, np.zeros(3, dtype=np.float32)))
 
-                root_trans_list.append(frame_joints["hips"])
+                root_pt = frame_joints.get("hips") if frame_joints else None
+                if root_pt is None and last_valid_joints:
+                    root_pt = last_valid_joints.get("hips")
+                if root_pt is None:
+                    root_pt = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+                root_trans_list.append(root_pt)
                 frame_idx += 1
 
                 if frame_idx % 5 == 0 or frame_idx == frames_to_process:
@@ -481,12 +491,28 @@ class MotionExtractor:
         finally:
             cap.release()
 
-        final_joint_positions = {
-            j_name: np.stack(pos_list, axis=0) if len(pos_list) > 0 else np.zeros((1, 3), dtype=np.float32)
-            for j_name, pos_list in all_frames_joints.items()
-        }
-        final_root = np.stack(root_trans_list, axis=0) if len(root_trans_list) > 0 else np.zeros((1, 3), dtype=np.float32)
         actual_frame_count = len(timestamps)
+        final_joint_positions: Dict[str, np.ndarray] = {}
+        for j_name in tracked_joints:
+            pos_list = all_frames_joints[j_name]
+            if len(pos_list) == actual_frame_count and actual_frame_count > 0:
+                final_joint_positions[j_name] = np.stack(pos_list, axis=0)
+            elif len(pos_list) > 0 and actual_frame_count > 0:
+                stacked = np.stack(pos_list, axis=0)
+                padded = np.zeros((actual_frame_count, 3), dtype=np.float32)
+                copy_len = min(len(stacked), actual_frame_count)
+                padded[:copy_len] = stacked[:copy_len]
+                if copy_len < actual_frame_count:
+                    padded[copy_len:] = stacked[-1]
+                final_joint_positions[j_name] = padded
+            else:
+                final_joint_positions[j_name] = np.zeros((max(1, actual_frame_count), 3), dtype=np.float32)
+
+        if len(root_trans_list) == actual_frame_count and actual_frame_count > 0:
+            final_root = np.stack(root_trans_list, axis=0)
+        else:
+            final_root = np.zeros((max(1, actual_frame_count), 3), dtype=np.float32)
+
         duration = actual_frame_count / fps if fps > 0 else 0.0
 
         self.reporter.report("EXTRACT", 1.0, f"DWPose WholeBody extraction complete: {actual_frame_count} frames processed.")
@@ -574,11 +600,21 @@ class MotionExtractor:
                     frame_joints = self._estimate_frame_3d_pose(frame)
                     last_valid_joints = frame_joints
 
+                default_frame = self._generate_default_human_frame()
                 for j_name in tracked_joints:
-                    if j_name in frame_joints:
+                    if frame_joints and j_name in frame_joints:
                         all_frames_joints[j_name].append(frame_joints[j_name])
+                    elif last_valid_joints and j_name in last_valid_joints:
+                        all_frames_joints[j_name].append(last_valid_joints[j_name])
+                    else:
+                        all_frames_joints[j_name].append(default_frame.get(j_name, np.zeros(3, dtype=np.float32)))
 
-                root_trans_list.append(frame_joints["hips"])
+                root_pt = frame_joints.get("hips") if frame_joints else None
+                if root_pt is None and last_valid_joints:
+                    root_pt = last_valid_joints.get("hips")
+                if root_pt is None:
+                    root_pt = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+                root_trans_list.append(root_pt)
                 frame_idx += 1
 
                 if frame_idx % 15 == 0 or frame_idx == frames_to_process:
@@ -596,13 +632,28 @@ class MotionExtractor:
                 except Exception:
                     pass
 
-        final_joint_positions = {
-            j_name: np.stack(pos_list, axis=0) if len(pos_list) > 0 else np.zeros((1, 3), dtype=np.float32)
-            for j_name, pos_list in all_frames_joints.items()
-        }
-        final_root = np.stack(root_trans_list, axis=0) if len(root_trans_list) > 0 else np.zeros((1, 3), dtype=np.float32)
-
         actual_frame_count = len(timestamps)
+        final_joint_positions: Dict[str, np.ndarray] = {}
+        for j_name in tracked_joints:
+            pos_list = all_frames_joints[j_name]
+            if len(pos_list) == actual_frame_count and actual_frame_count > 0:
+                final_joint_positions[j_name] = np.stack(pos_list, axis=0)
+            elif len(pos_list) > 0 and actual_frame_count > 0:
+                stacked = np.stack(pos_list, axis=0)
+                padded = np.zeros((actual_frame_count, 3), dtype=np.float32)
+                copy_len = min(len(stacked), actual_frame_count)
+                padded[:copy_len] = stacked[:copy_len]
+                if copy_len < actual_frame_count:
+                    padded[copy_len:] = stacked[-1]
+                final_joint_positions[j_name] = padded
+            else:
+                final_joint_positions[j_name] = np.zeros((max(1, actual_frame_count), 3), dtype=np.float32)
+
+        if len(root_trans_list) == actual_frame_count and actual_frame_count > 0:
+            final_root = np.stack(root_trans_list, axis=0)
+        else:
+            final_root = np.zeros((max(1, actual_frame_count), 3), dtype=np.float32)
+
         duration = actual_frame_count / fps if fps > 0 else 0.0
 
         self.reporter.report("EXTRACT", 1.0, f"Extraction complete: {actual_frame_count} frames processed.")
@@ -684,6 +735,10 @@ class MotionExtractor:
             "right_thumb": pt(22),
             "left_pinky": pt(17),
             "right_pinky": pt(18),
+            "left_middle": (pt(19) * 0.65 + pt(17) * 0.35).astype(np.float32),
+            "right_middle": (pt(20) * 0.65 + pt(18) * 0.35).astype(np.float32),
+            "left_ring": (pt(19) * 0.35 + pt(17) * 0.65).astype(np.float32),
+            "right_ring": (pt(20) * 0.35 + pt(18) * 0.65).astype(np.float32),
             "left_upleg": l_hip,
             "left_leg": pt(25),
             "left_foot": pt(27),
@@ -710,6 +765,8 @@ class MotionExtractor:
             "left_fingers": np.array([0.90, 1.45, 0.0], dtype=np.float32),
             "left_thumb": np.array([0.85, 1.47, 0.02], dtype=np.float32),
             "left_pinky": np.array([0.89, 1.43, -0.01], dtype=np.float32),
+            "left_middle": np.array([0.90, 1.45, 0.0], dtype=np.float32),
+            "left_ring": np.array([0.89, 1.44, -0.005], dtype=np.float32),
             "right_shoulder": np.array([-0.15, 1.45, 0.0], dtype=np.float32),
             "right_arm": np.array([-0.35, 1.45, 0.0], dtype=np.float32),
             "right_forearm": np.array([-0.60, 1.45, 0.0], dtype=np.float32),
@@ -717,6 +774,8 @@ class MotionExtractor:
             "right_fingers": np.array([-0.90, 1.45, 0.0], dtype=np.float32),
             "right_thumb": np.array([-0.85, 1.47, 0.02], dtype=np.float32),
             "right_pinky": np.array([-0.89, 1.43, -0.01], dtype=np.float32),
+            "right_middle": np.array([-0.90, 1.45, 0.0], dtype=np.float32),
+            "right_ring": np.array([-0.89, 1.44, -0.005], dtype=np.float32),
             "left_upleg": np.array([0.15, 0.95, 0.0], dtype=np.float32),
             "left_leg": np.array([0.15, 0.50, 0.0], dtype=np.float32),
             "left_foot": np.array([0.15, 0.05, 0.0], dtype=np.float32),

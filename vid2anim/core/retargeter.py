@@ -127,8 +127,12 @@ class UniversalRetargeter:
                     p_joint, c_joint, rest_vec = LIMB_VECTORS[canonical]
                     
                     if p_joint in motion.joint_positions and c_joint in motion.joint_positions:
-                        pos_parent = motion.joint_positions[p_joint][f]
-                        pos_child = motion.joint_positions[c_joint][f]
+                        p_arr = motion.joint_positions[p_joint]
+                        c_arr = motion.joint_positions[c_joint]
+                        if len(p_arr) == 0 or len(c_arr) == 0:
+                            continue
+                        pos_parent = p_arr[min(f, len(p_arr) - 1)]
+                        pos_child = c_arr[min(f, len(c_arr) - 1)]
                         curr_vec = pos_child - pos_parent
 
                         if np.linalg.norm(curr_vec) > 1e-5:
