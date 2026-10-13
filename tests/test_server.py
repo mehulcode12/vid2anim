@@ -66,3 +66,14 @@ def test_server_progress_endpoint(running_server):
     assert "step" in data
     assert "message" in data
 
+
+def test_server_samples_endpoints(running_server):
+    req_v = urllib.request.urlopen(f"{running_server}/api/samples/video")
+    assert req_v.status == 200
+    assert req_v.headers.get("Content-Type") == "video/mp4"
+
+    req_m = urllib.request.urlopen(f"{running_server}/api/samples/model")
+    assert req_m.status == 200
+    assert req_m.headers.get("Content-Type") == "model/gltf-binary"
+
+

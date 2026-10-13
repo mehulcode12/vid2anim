@@ -1,7 +1,7 @@
 """Zero-Dependency Web UI & API Server for vid2anim.
 
 Provides a modern browser interface with drag-and-drop file upload, real-time
-progress updates, and an interactive Three.js 3D model viewport.
+progress updates, dual-AI model selector, and an interactive Three.js 3D viewport.
 Runs using Python's standard library http.server without requiring external web frameworks.
 """
 
@@ -40,33 +40,46 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <title>vid2anim - 3D Character Motion Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <style>
     :root {
       --bg-dark: #07090e;
-      --bg-panel: #0d121f;
-      --bg-card: #141b2d;
-      --bg-card-hover: #1a233a;
+      --bg-panel: #0b0f19;
+      --bg-panel-trans: rgba(11, 15, 25, 0.85);
+      --bg-card: #121829;
+      --bg-card-hover: #182138;
       --border: rgba(255, 255, 255, 0.08);
-      --border-accent: rgba(99, 102, 241, 0.35);
+      --border-accent: rgba(99, 102, 241, 0.4);
       --accent: #6366f1;
       --accent-hover: #4f46e5;
-      --accent-glow: rgba(99, 102, 241, 0.3);
+      --accent-glow: rgba(99, 102, 241, 0.35);
       --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
       --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.3);
       --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.25);
       --amber: #f59e0b;
       --text: #cbd5e1;
       --text-bright: #ffffff;
       --text-dim: #64748b;
+      --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.4);
+      --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.25);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
     body {
-      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(236, 72, 153, 0.08) 0%, transparent 40%);
       color: var(--text);
       display: flex;
       flex-direction: column;
@@ -74,14 +87,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       overflow: hidden;
       user-select: none;
     }
+
+    /* Top Navigation Header */
     header {
-      padding: 12px 24px;
+      padding: 10px 24px;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: var(--bg-panel);
-      z-index: 10;
+      background: var(--bg-panel-trans);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 20;
     }
     .brand {
       display: flex;
@@ -90,7 +107,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     .brand-logo {
       font-size: 1.35rem;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: -0.5px;
       background: var(--accent-grad);
       -webkit-background-clip: text;
@@ -100,29 +117,51 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       gap: 8px;
     }
     .brand-pill {
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 2px 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 9px;
       border-radius: 999px;
       background: rgba(99, 102, 241, 0.15);
       color: #a5b4fc;
-      border: 1px solid rgba(99, 102, 241, 0.3);
+      border: 1px solid rgba(99, 102, 241, 0.35);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
     }
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+    }
+    .quick-demo-btn {
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quick-demo-btn:hover {
+      background: rgba(99, 102, 241, 0.25);
+      color: #ffffff;
+      box-shadow: 0 0 14px var(--accent-glow);
+      transform: translateY(-1px);
     }
     .badge {
-      font-size: 0.75rem;
-      padding: 4px 10px;
+      font-size: 0.74rem;
+      padding: 5px 11px;
       border-radius: 999px;
       font-weight: 500;
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      backdrop-filter: blur(8px);
     }
     .badge-device {
       background: rgba(16, 185, 129, 0.12);
@@ -146,35 +185,75 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       background: currentColor;
       box-shadow: 0 0 8px currentColor;
     }
+
+    /* Main Container */
     .main-container {
       display: grid;
-      grid-template-columns: 350px 1fr;
+      grid-template-columns: 370px 1fr;
       flex: 1;
       overflow: hidden;
     }
+
+    /* Sidebar Studio Panel */
     .sidebar {
-      padding: 20px;
+      padding: 18px 20px 24px;
       border-right: 1px solid var(--border);
-      background: var(--bg-panel);
+      background: var(--bg-panel-trans);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 16px;
+      z-index: 10;
     }
-    .input-group {
+
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 10px;
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .input-group label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-bright);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .section-card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .section-header {
       display: flex;
       justify-content: space-between;
+      align-items: center;
     }
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-number {
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+    }
+    .section-tag {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+
+    /* Upload Zones */
     .upload-zone {
       border: 1.5px dashed var(--border);
       border-radius: 10px;
@@ -187,21 +266,152 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     .upload-zone:hover, .upload-zone.dragover {
       border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.06);
+      background: rgba(99, 102, 241, 0.08);
       transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
     }
     .upload-zone svg {
       stroke: #818cf8;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.3));
     }
-    .upload-zone p { font-size: 0.8rem; color: var(--text-dim); }
-    .file-name {
+    .upload-zone p { font-size: 0.82rem; color: var(--text); font-weight: 500; }
+    .upload-zone span { font-size: 0.72rem; color: var(--text-dim); }
+
+    .file-pill {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.3);
       font-size: 0.78rem;
-      color: #a5b4fc;
-      margin-top: 6px;
-      word-break: break-all;
-      font-weight: 500;
+      color: #cbd5e1;
+      margin-top: 4px;
     }
+    .file-pill-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-pill-name {
+      font-weight: 600;
+      color: #ffffff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-pill-btn {
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: #94a3b8;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+    .file-pill-btn:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+    .sample-pill-btn {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sample-pill-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #ffffff;
+    }
+
+    /* Dual-Engine AI Cards */
+    .engine-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .engine-card {
+      padding: 11px 13px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .engine-card:hover {
+      border-color: rgba(99, 102, 241, 0.45);
+      background: var(--bg-card-hover);
+      transform: translateY(-1px);
+    }
+    .engine-card.active {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.12);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+    }
+    .engine-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .engine-title {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .engine-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: all 0.2s;
+    }
+    .engine-card.active .engine-dot {
+      background: #818cf8;
+      box-shadow: 0 0 8px #6366f1;
+    }
+    .engine-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .tag-fast {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .tag-precision {
+      background: rgba(139, 92, 246, 0.18);
+      color: #c084fc;
+      border: 1px solid rgba(139, 92, 246, 0.45);
+    }
+    .engine-desc {
+      font-size: 0.73rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    /* Settings & Controls */
     select, button {
       font-family: inherit;
       padding: 10px 14px;
@@ -209,7 +419,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       border: 1px solid var(--border);
       background: var(--bg-card);
       color: var(--text-bright);
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -217,127 +427,119 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       outline: none;
       border-color: var(--accent);
     }
+
+    /* Primary Action Button */
     button.primary {
       background: var(--accent-grad);
       border: none;
-      font-weight: 600;
-      font-size: 0.92rem;
-      padding: 12px;
-      box-shadow: 0 4px 16px var(--accent-glow);
+      font-weight: 700;
+      font-size: 0.94rem;
+      padding: 13px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px var(--accent-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.2px;
     }
     button.primary:hover:not(:disabled) {
       filter: brightness(1.1);
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(99, 102, 241, 0.45);
     }
-    .engine-cards {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .engine-card {
-      padding: 10px 12px;
-      border-radius: 8px;
-      background: var(--bg-card);
-      border: 1.5px solid var(--border);
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .engine-card:hover {
-      border-color: rgba(99, 102, 241, 0.4);
-      background: var(--bg-card-hover);
-    }
-    .engine-card.active {
-      border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.12);
-      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
-    }
-    .engine-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-    .engine-title {
-      font-size: 0.84rem;
-      font-weight: 600;
-      color: var(--text-bright);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .engine-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--text-dim);
-    }
-    .engine-card.active .engine-dot {
-      background: #6366f1;
-      box-shadow: 0 0 6px #6366f1;
-    }
-    .engine-tag {
-      font-size: 0.68rem;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .tag-fast {
-      background: rgba(16, 185, 129, 0.15);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-    .tag-precision {
-      background: rgba(139, 92, 246, 0.18);
-      color: #c084fc;
-      border: 1px solid rgba(139, 92, 246, 0.4);
-    }
-    .engine-desc {
-      font-size: 0.73rem;
-      color: var(--text-dim);
-      line-height: 1.35;
-    }
+    button:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+    /* Interactive Stepper Pipeline Status */
     .status-card {
       padding: 14px;
-      border-radius: 8px;
+      border-radius: 10px;
       background: var(--bg-card);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-accent);
       font-size: 0.82rem;
-      line-height: 1.4;
+      box-shadow: var(--shadow-glow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .status-header {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 6px;
-      font-weight: 600;
+      align-items: center;
+      font-weight: 700;
       color: var(--text-bright);
+    }
+    .pipeline-stepper {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin: 4px 0;
+    }
+    .step-pill {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 4px 2px;
+      text-align: center;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-dim);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.25s;
+    }
+    .step-pill.active {
+      background: rgba(99, 102, 241, 0.25);
+      color: #a5b4fc;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+    }
+    .step-pill.done {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.35);
     }
     .progress-bar-bg {
       height: 6px;
       background: rgba(255, 255, 255, 0.08);
       border-radius: 999px;
       overflow: hidden;
-      margin-top: 8px;
+      position: relative;
     }
     .progress-bar-fill {
       height: 100%;
       background: var(--accent-grad);
       width: 0%;
       transition: width 0.3s ease;
+      box-shadow: 0 0 10px var(--accent);
     }
+    .status-detail {
+      font-size: 0.74rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
     .download-btn {
       background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
+      border: 1px solid rgba(16, 185, 129, 0.45);
       color: #34d399;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 0.88rem;
+      padding: 12px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+      transition: all 0.2s;
     }
     .download-btn:hover {
       background: rgba(16, 185, 129, 0.25);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
     }
 
     /* Stage Area */
@@ -347,15 +549,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       height: 100%;
       overflow: hidden;
       background: #04060a;
+      position: relative;
     }
     .stage-header {
       padding: 8px 16px;
       border-bottom: 1px solid var(--border);
-      background: var(--bg-panel);
+      background: var(--bg-panel-trans);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      z-index: 5;
+      z-index: 10;
     }
     .view-mode-tabs {
       display: flex;
@@ -369,7 +574,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       padding: 5px 12px;
       border-radius: 6px;
       font-size: 0.78rem;
-      font-weight: 500;
+      font-weight: 600;
       border: none;
       background: transparent;
       color: var(--text-dim);
@@ -377,16 +582,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 6px;
+      transition: all 0.2s;
     }
     .view-tab.active {
       background: var(--accent);
       color: #ffffff;
-      box-shadow: 0 2px 8px var(--accent-glow);
+      box-shadow: 0 2px 10px var(--accent-glow);
     }
     .stage-tools {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     /* Viewports Layout Container */
@@ -418,7 +624,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       border-right: 1px solid var(--border);
-      background: #050811;
+      background: #030509;
     }
     .viewport-card:last-child {
       border-right: none;
@@ -431,13 +637,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 8px;
-      background: rgba(13, 18, 31, 0.85);
+      background: rgba(11, 15, 25, 0.85);
       backdrop-filter: blur(8px);
-      padding: 4px 10px;
+      padding: 5px 11px;
       border-radius: 6px;
       border: 1px solid var(--border);
       font-size: 0.72rem;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.5px;
       text-transform: uppercase;
       color: #cbd5e1;
@@ -451,7 +657,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Video player container */
+    /* Video player */
     #videoViewport {
       align-items: center;
       justify-content: center;
@@ -471,9 +677,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       display: none;
     }
 
-    /* 3D Viewport container */
+    /* 3D Viewport */
     #modelViewport {
-      background: radial-gradient(circle at center, #0e1526 0%, #050811 100%);
+      background: radial-gradient(circle at center, #0e1629 0%, #040711 100%);
     }
     #viewport3d {
       width: 100%;
@@ -486,12 +692,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       right: 12px;
       z-index: 4;
       font-size: 0.68rem;
-      color: rgba(255, 255, 255, 0.35);
-      background: rgba(7, 9, 14, 0.7);
+      color: rgba(255, 255, 255, 0.4);
+      background: rgba(7, 9, 14, 0.75);
       backdrop-filter: blur(4px);
-      padding: 4px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       pointer-events: none;
     }
 
@@ -510,28 +716,70 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       z-index: 2;
     }
     .viewport-empty svg {
-      stroke: rgba(255, 255, 255, 0.15);
+      stroke: rgba(255, 255, 255, 0.16);
       margin-bottom: 12px;
     }
     .viewport-empty h4 {
-      font-size: 0.95rem;
-      color: var(--text);
+      font-size: 0.98rem;
+      color: var(--text-bright);
       margin-bottom: 4px;
     }
     .viewport-empty p {
       font-size: 0.78rem;
-      max-width: 220px;
+      max-width: 240px;
+      line-height: 1.4;
+    }
+
+    /* Floating Viewport HUD buttons */
+    .viewport-hud {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(11, 15, 25, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .hud-btn {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .hud-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .hud-btn.active {
+      color: #a5b4fc;
+      background: rgba(99, 102, 241, 0.2);
+      border-color: rgba(99, 102, 241, 0.4);
     }
 
     /* Bottom Docked Playback Bar */
     .sync-controller {
-      background: var(--bg-panel);
+      background: var(--bg-panel-trans);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-top: 1px solid var(--border);
-      padding: 10px 20px 14px;
+      padding: 10px 24px 14px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      z-index: 6;
+      z-index: 10;
     }
     .timeline-container {
       display: flex;
@@ -553,17 +801,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .time-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 15px;
+      height: 15px;
       border-radius: 50%;
       background: #818cf8;
-      box-shadow: 0 0 10px #6366f1;
+      box-shadow: 0 0 12px #6366f1;
       cursor: pointer;
       border: 2px solid #ffffff;
-      transition: transform 0.1s;
+      transition: transform 0.15s;
     }
     .time-slider::-webkit-slider-thumb:hover {
-      transform: scale(1.25);
+      transform: scale(1.3);
     }
     .controls-row {
       display: flex;
@@ -579,31 +827,44 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       padding: 6px 12px;
       border-radius: 6px;
       font-size: 0.8rem;
-      font-weight: 500;
+      font-weight: 600;
       background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text-bright);
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
     .ctrl-btn:hover {
       background: var(--bg-card-hover);
       border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
     }
     .ctrl-btn.play-btn {
       background: var(--accent);
       border-color: var(--accent);
-      padding: 6px 16px;
-      font-weight: 600;
+      padding: 6px 18px;
+      font-weight: 700;
+      box-shadow: 0 0 12px var(--accent-glow);
     }
     .ctrl-btn.play-btn:hover {
       background: var(--accent-hover);
+      box-shadow: 0 0 18px var(--accent-glow);
     }
     .ctrl-btn.active {
       background: rgba(99, 102, 241, 0.2);
       border-color: var(--accent);
       color: #a5b4fc;
+    }
+    .ctrl-key {
+      font-size: 0.65rem;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      margin-left: 2px;
     }
     .time-display {
       font-family: 'JetBrains Mono', monospace;
@@ -616,7 +877,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     .frame-pill {
       font-size: 0.72rem;
-      padding: 2px 6px;
+      padding: 3px 7px;
       border-radius: 4px;
       background: rgba(255, 255, 255, 0.05);
       color: #94a3b8;
@@ -630,9 +891,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         vid2anim
       </div>
-      <div class="brand-pill">Universal Retargeting Studio</div>
+      <div class="brand-pill">Studio Pro v2.5</div>
     </div>
     <div class="header-actions">
+      <button class="quick-demo-btn" onclick="loadQuickDemo()" title="Instantly load sample video and 3D character for 1-click test">
+        <span>⚡</span> Quick Demo Preset
+      </button>
       <div id="syncBadge" class="badge badge-sync active">
         <span class="badge-dot"></span>
         <span id="syncText">Dual-Viewport Synced</span>
@@ -643,31 +907,66 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="main-container">
     <div class="sidebar">
-      <!-- Media Upload -->
-      <div class="input-group">
-        <label>1. Source Footage <span>Max 30s</span></label>
-        <div class="upload-zone" onclick="document.getElementById('mediaInput').click()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          <p>Drop MP4 / MOV video or photo</p>
-          <div id="mediaName" class="file-name"></div>
+      <!-- Section 1: Media Upload -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">
+            <span class="section-number">01</span> Source Footage
+          </div>
+          <span class="section-tag">Max 30s</span>
         </div>
+        <div class="upload-zone" id="mediaZone" onclick="document.getElementById('mediaInput').click()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <p>Drop Video or Photo</p>
+          <span>MP4, MOV, WEBM, JPG, PNG</span>
+        </div>
+        <div id="mediaPill" class="file-pill">
+          <div class="file-pill-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <span id="mediaName" class="file-pill-name"></span>
+          </div>
+          <button class="file-pill-btn" onclick="clearMedia(event)">Clear</button>
+        </div>
+        <button type="button" class="sample-pill-btn" onclick="loadSampleVideo()">
+          <span>⚡</span> Use "Phone Hold" Sample Clip
+        </button>
         <input type="file" id="mediaInput" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png" style="display:none">
       </div>
 
-      <!-- 3D Model Upload -->
-      <div class="input-group">
-        <label>2. Target 3D Model <span>Rigged Mesh</span></label>
-        <div class="upload-zone" onclick="document.getElementById('modelInput').click()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          <p>Drop .GLB, .FBX, or .OBJ character</p>
-          <div id="modelName" class="file-name"></div>
+      <!-- Section 2: 3D Model Upload -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">
+            <span class="section-number">02</span> Target 3D Character
+          </div>
+          <span class="section-tag">Rigged Mesh</span>
         </div>
+        <div class="upload-zone" id="modelZone" onclick="document.getElementById('modelInput').click()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <p>Drop 3D Character Model</p>
+          <span>GLB, GLTF, FBX, OBJ</span>
+        </div>
+        <div id="modelPill" class="file-pill">
+          <div class="file-pill-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span id="modelName" class="file-pill-name"></span>
+          </div>
+          <button class="file-pill-btn" onclick="clearModel(event)">Clear</button>
+        </div>
+        <button type="button" class="sample-pill-btn" onclick="loadSampleModel()">
+          <span>⚡</span> Use "Cyborg Oni" 3D Character
+        </button>
         <input type="file" id="modelInput" accept=".glb,.gltf,.fbx,.obj" style="display:none">
       </div>
 
-      <!-- Tracking Engine Setting -->
-      <div class="input-group">
-        <label>3. Tracking AI Model <span>Dual-Engine</span></label>
+      <!-- Section 3: Dual-Engine Model Selector -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">
+            <span class="section-number">03</span> Tracking AI Model
+          </div>
+          <span class="section-tag">Dual-Engine</span>
+        </div>
         <div class="engine-cards">
           <div class="engine-card active" id="engineCardMediapipe" onclick="selectEngine('mediapipe')">
             <div class="engine-card-header">
@@ -675,9 +974,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 <span class="engine-dot"></span>
                 MediaPipe Pose
               </div>
-              <span class="engine-tag tag-fast">Fast CPU</span>
+              <span class="engine-tag tag-fast">Fast CPU (~30 FPS)</span>
             </div>
-            <p class="engine-desc">30+ FPS real-time CPU tracking. Instant startup, lightweight memory footprint.</p>
+            <p class="engine-desc">Lightweight real-time tracking. Instant startup, low memory, robust full-body kinematics.</p>
           </div>
           <div class="engine-card" id="engineCardDwpose" onclick="selectEngine('dwpose')">
             <div class="engine-card-header">
@@ -687,38 +986,61 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
               </div>
               <span class="engine-tag tag-precision">133 Pts Deep AI</span>
             </div>
-            <p class="engine-desc">133 whole-body keypoints + full 21-joint per-hand finger tracking via ONNX.</p>
+            <p class="engine-desc">133 whole-body landmarks + full 21-joint per-hand finger curling & articulation via ONNX.</p>
           </div>
         </div>
         <input type="hidden" id="selectedEngine" value="mediapipe">
       </div>
 
-      <!-- Device Setting -->
-      <div class="input-group">
-        <label>4. Compute Hardware</label>
-        <select id="deviceSelect">
-          <option value="cpu" selected>CPU (Lightweight / Stable)</option>
-          <option value="cuda">GPU (NVIDIA CUDA Acceleration)</option>
-        </select>
+      <!-- Section 4: Motion Settings -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">
+            <span class="section-number">04</span> Engine & Tuning
+          </div>
+          <span class="section-tag">Anti-Jitter</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-dim);">
+            <span>Compute Device</span>
+            <span style="color:var(--cyan)">Auto-Optimized</span>
+          </div>
+          <select id="deviceSelect">
+            <option value="cpu" selected>CPU (Lightweight / Stable)</option>
+            <option value="cuda">GPU (NVIDIA CUDA Acceleration)</option>
+          </select>
+        </div>
       </div>
 
-      <!-- Action Button -->
-      <button id="runBtn" class="primary" onclick="startAnimationPipeline()" disabled>Animate 3D Model</button>
+      <!-- Section 5: Primary Action & Status -->
+      <button id="runBtn" class="primary" onclick="startAnimationPipeline()" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Animate 3D Character
+      </button>
 
-      <!-- Status Card -->
+      <!-- Live Pipeline Stepper Status -->
       <div id="statusCard" class="status-card" style="display:none">
         <div class="status-header">
           <span id="statusTitle">Processing</span>
           <span id="statusPercent" style="color:var(--cyan)">0%</span>
         </div>
-        <div id="statusText">Ready</div>
+        <div class="pipeline-stepper">
+          <div id="stepPill1" class="step-pill">1. Ingest</div>
+          <div id="stepPill2" class="step-pill">2. Extract</div>
+          <div id="stepPill3" class="step-pill">3. Retarget</div>
+          <div id="stepPill4" class="step-pill">4. Pack GLB</div>
+        </div>
         <div class="progress-bar-bg">
           <div id="progressBar" class="progress-bar-fill"></div>
+        </div>
+        <div class="status-detail">
+          <span id="statusText">Preparing assets...</span>
+          <span id="statusTimer" style="font-family:'JetBrains Mono'">00:00.0s</span>
         </div>
       </div>
 
       <button id="downloadBtn" class="download-btn" onclick="downloadResult()" style="display:none">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download Animated .GLB
       </button>
     </div>
@@ -733,17 +1055,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           </button>
           <button class="view-tab" id="tab3d" onclick="setViewMode('3d')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-            3D Focus
+            3D Solo
           </button>
           <button class="view-tab" id="tabVideo" onclick="setViewMode('video')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Video Only
+            Video Solo
           </button>
         </div>
 
         <div class="stage-tools">
           <select id="animSelect" onchange="switchAnimation(this.value)" style="display:none; font-size:0.75rem; padding:4px 8px;"></select>
-          <button class="ctrl-btn" onclick="resetCamera()" title="Reset 3D Camera">
+          <button class="ctrl-btn" onclick="resetCamera()" title="Reset 3D Camera [R]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
             Reset Cam
           </button>
@@ -760,9 +1082,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             <span id="videoMetaBadge" class="viewport-meta">No media</span>
           </div>
           <div id="videoEmptyState" class="viewport-empty">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
             <h4>Reference Footage</h4>
-            <p>Upload a video on the left to preview original motion here</p>
+            <p>Upload a video on the left or click "Quick Demo" to preview here</p>
           </div>
           <video id="sourceVideo" playsinline muted style="display:none"></video>
           <img id="sourceImage" alt="Reference Image">
@@ -775,17 +1097,31 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             Retargeted 3D Mesh
             <span id="modelMetaBadge" class="viewport-meta">Waiting for model</span>
           </div>
+
+          <!-- Floating Viewport HUD -->
+          <div class="viewport-hud">
+            <button class="hud-btn" id="btnSkeleton" onclick="toggleSkeleton()" title="Toggle Skeleton Overlay [B]">
+              🦴 Bones
+            </button>
+            <button class="hud-btn active" id="btnGrid" onclick="toggleGrid()" title="Toggle Floor Grid [G]">
+              📐 Grid
+            </button>
+            <button class="hud-btn" id="btnWireframe" onclick="toggleWireframe()" title="Toggle Wireframe">
+              🌐 Wire
+            </button>
+          </div>
+
           <div id="modelEmptyState" class="viewport-empty">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
             <h4>3D Character Viewport</h4>
-            <p>Upload a .GLB/.FBX character to preview retargeted animations</p>
+            <p>Upload character on the left or use the "Quick Demo" button</p>
           </div>
           <div id="viewport3d"></div>
-          <div class="viewport-hints">Left Click: Rotate | Right Click: Pan | Scroll: Zoom</div>
+          <div class="viewport-hints">Left Click: Rotate | Right Click: Pan | Scroll: Zoom | Space: Play/Pause</div>
         </div>
       </div>
 
-      <!-- Bottom Docked Synchronization Controller -->
+      <!-- Bottom Docked Playback Bar -->
       <div class="sync-controller" id="syncController">
         <div class="timeline-container">
           <input type="range" id="timeSlider" class="time-slider" min="0" max="1" step="0.01" value="0">
@@ -797,14 +1133,15 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             <button id="playBtn" class="ctrl-btn play-btn" onclick="togglePlayback()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <span>Play</span>
+              <span class="ctrl-key">Space</span>
             </button>
-            <button class="ctrl-btn" onclick="stepFrame(-1)" title="Previous Frame (Left Arrow)">
+            <button class="ctrl-btn" onclick="stepFrame(-1)" title="Previous Frame [Left Arrow]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
-              -1 Frame
+              -1F <span class="ctrl-key">←</span>
             </button>
-            <button class="ctrl-btn" onclick="stepFrame(1)" title="Next Frame (Right Arrow)">
+            <button class="ctrl-btn" onclick="stepFrame(1)" title="Next Frame [Right Arrow]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-              +1 Frame
+              +1F <span class="ctrl-key">→</span>
             </button>
             <div class="time-display">
               <span id="timecodeText">00:00.00 / 00:00.00</span>
@@ -821,11 +1158,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
               <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(1.5)">1.5x</button>
               <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(2.0)">2.0x</button>
             </div>
-            <button id="loopBtn" class="ctrl-btn active" onclick="toggleLoop()" title="Toggle Looping">
+            <button id="loopBtn" class="ctrl-btn active" onclick="toggleLoop()" title="Toggle Looping [L]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
               Loop
             </button>
-            <button id="muteBtn" class="ctrl-btn active" onclick="toggleMute()" title="Toggle Audio">
+            <button id="muteBtn" class="ctrl-btn active" onclick="toggleMute()" title="Toggle Audio [M]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
               Muted
             </button>
@@ -839,6 +1176,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     let scene, camera, renderer, controls, mixer, clock, currentAction;
     let selectedMedia = null, selectedModel = null, lastResultBlobUrl = null;
     let currentGltfClips = [];
+    let skeletonHelper = null;
+    let isSkeletonVisible = false;
+    let isGridVisible = true;
+    let isWireframe = false;
 
     // Master Synchronization State
     const sourceVideo = document.getElementById('sourceVideo');
@@ -873,10 +1214,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 1.0, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
       controls.update();
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
@@ -890,7 +1234,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       backLight.position.set(-2, 2, -2);
       scene.add(backLight);
 
-      const grid = new THREE.GridHelper(10, 20, 0x30363d, 0x161b22);
+      const grid = new THREE.GridHelper(10, 20, 0x4f46e5, 0x161b22);
+      grid.name = 'floorGrid';
       scene.add(grid);
 
       window.addEventListener('resize', onWindowResize);
@@ -914,14 +1259,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       renderer.setSize(w, h);
     }
 
-    // Main Render & Synchronizer Loop
+    // Main Render Loop
     function animate() {
       requestAnimationFrame(animate);
 
       if (isPlaying && !isSeeking) {
         let curTime = 0;
 
-        // If source video exists, use it as Master Hardware Clock
+        // If source video exists, lockstep synchronizer
         if (sourceVideo && sourceVideo.src && !sourceVideo.paused && sourceVideo.readyState >= 2) {
           curTime = sourceVideo.currentTime;
           if (mixer && currentAction) {
@@ -930,7 +1275,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             mixer.setTime(animTime);
           }
         } else if (mixer && currentAction && !currentAction.paused) {
-          // Fallback to clock delta if 3D only
           const delta = clock.getDelta();
           mixer.update(delta * playbackSpeed);
           const clipDur = currentAction.getClip().duration || 1;
@@ -976,7 +1320,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       else if (mode === '3d') document.getElementById('tab3d').classList.add('active');
       else if (mode === 'video') document.getElementById('tabVideo').classList.add('active');
 
-      setTimeout(onWindowResize, 30);
+      setTimeout(onWindowResize, 40);
     }
 
     // GLB Loading
@@ -986,10 +1330,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       const loader = new THREE.GLTFLoader();
       loader.load(url, (gltf) => {
         if (mixer) mixer.stopAllAction();
-        scene.children.filter(c => c.isGroup || c.isMesh).forEach(c => scene.remove(c));
+        scene.children.filter(c => c.isGroup || c.isMesh || c.isSkeletonHelper).forEach(c => scene.remove(c));
 
         const model = gltf.scene;
         scene.add(model);
+
+        // Skeleton overlay
+        skeletonHelper = new THREE.SkeletonHelper(model);
+        skeletonHelper.visible = isSkeletonVisible;
+        skeletonHelper.material.linewidth = 2;
+        scene.add(skeletonHelper);
 
         // Frame camera to character bounding box
         const box = new THREE.Box3().setFromObject(model);
@@ -1007,10 +1357,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           controls.maxDistance = maxDim * 10;
           controls.update();
 
-          const existingGrid = scene.children.find(c => c.isGridHelper);
+          const existingGrid = scene.children.find(c => c.name === 'floorGrid');
           if (existingGrid) scene.remove(existingGrid);
-          const grid = new THREE.GridHelper(maxDim * 3, 20, 0x30363d, 0x161b22);
+          const grid = new THREE.GridHelper(maxDim * 3, 20, 0x4f46e5, 0x161b22);
+          grid.name = 'floorGrid';
           grid.position.y = box.min.y;
+          grid.visible = isGridVisible;
           scene.add(grid);
         }
 
@@ -1039,10 +1391,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           currentAction.play();
           currentAction.paused = !isPlaying;
 
-          const boneBadgeText = lastAnimatedBoneCount > 0 ? `${lastAnimatedBoneCount} Animated Bones` : `${targetClip.tracks.length} Tracks`;
+          const boneBadgeText = lastAnimatedBoneCount > 0 ? `${lastAnimatedBoneCount} Bones Animated` : `${targetClip.tracks.length} Tracks`;
           modelMetaBadge.innerText = `${boneBadgeText} • ${targetClip.duration.toFixed(1)}s`;
         } else {
-          modelMetaBadge.innerText = 'Static Neutral Pose';
+          modelMetaBadge.innerText = 'Static Neutral Mesh';
         }
 
         seekTo(0);
@@ -1052,18 +1404,42 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       });
     }
 
-    function switchAnimation(idx) {
-      if (!mixer || !currentGltfClips[idx]) return;
-      mixer.stopAllAction();
-      currentAction = mixer.clipAction(currentGltfClips[idx]);
+    function switchAnimation(clipIndex) {
+      if (!mixer || !currentGltfClips[clipIndex]) return;
+      if (currentAction) currentAction.stop();
+      currentAction = mixer.clipAction(currentGltfClips[clipIndex]);
       currentAction.play();
       currentAction.paused = !isPlaying;
-      totalDuration = Math.max(sourceVideo.duration || 0, currentGltfClips[idx].duration);
+      totalDuration = currentGltfClips[clipIndex].duration;
       timeSlider.max = totalDuration;
-      seekTo(timeSlider.value);
+      seekTo(0);
     }
 
-    // Synchronized Playback Functions
+    // Viewport HUD Toggles
+    function toggleSkeleton() {
+      isSkeletonVisible = !isSkeletonVisible;
+      if (skeletonHelper) skeletonHelper.visible = isSkeletonVisible;
+      document.getElementById('btnSkeleton').classList.toggle('active', isSkeletonVisible);
+    }
+
+    function toggleGrid() {
+      isGridVisible = !isGridVisible;
+      const grid = scene.children.find(c => c.name === 'floorGrid');
+      if (grid) grid.visible = isGridVisible;
+      document.getElementById('btnGrid').classList.toggle('active', isGridVisible);
+    }
+
+    function toggleWireframe() {
+      isWireframe = !isWireframe;
+      scene.traverse((node) => {
+        if (node.isMesh && node.material) {
+          node.material.wireframe = isWireframe;
+        }
+      });
+      document.getElementById('btnWireframe').classList.toggle('active', isWireframe);
+    }
+
+    // Playback Controls
     function togglePlayback() {
       if (isPlaying) pause();
       else play();
@@ -1071,78 +1447,61 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     function play() {
       isPlaying = true;
-      playBtn.className = 'ctrl-btn play-btn active';
-      playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause</span>';
-
-      if (sourceVideo && sourceVideo.src && !sourceVideo.ended) {
-        sourceVideo.play().catch(e => console.warn('Video play prevented:', e));
-      }
-      if (currentAction) {
-        currentAction.paused = false;
-      }
+      playBtn.classList.add('active');
+      playBtn.querySelector('span').innerText = 'Pause';
+      if (sourceVideo && sourceVideo.src) sourceVideo.play();
+      if (currentAction) currentAction.paused = false;
+      clock.start();
     }
 
     function pause() {
       isPlaying = false;
-      playBtn.className = 'ctrl-btn play-btn';
-      playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Play</span>';
-
-      if (sourceVideo && sourceVideo.src) {
-        sourceVideo.pause();
-      }
-      if (currentAction) {
-        currentAction.paused = true;
-      }
+      playBtn.classList.remove('active');
+      playBtn.querySelector('span').innerText = 'Play';
+      if (sourceVideo && sourceVideo.src) sourceVideo.pause();
+      if (currentAction) currentAction.paused = true;
+      clock.stop();
     }
 
-    function seekTo(t) {
-      const time = Math.max(0, Math.min(totalDuration, parseFloat(t)));
-      if (sourceVideo && sourceVideo.src) {
-        sourceVideo.currentTime = Math.min(time, sourceVideo.duration || time);
-      }
+    function seekTo(time) {
+      const t = parseFloat(time);
+      if (sourceVideo && sourceVideo.src) sourceVideo.currentTime = t;
       if (mixer && currentAction) {
         const clipDur = currentAction.getClip().duration;
-        const animTime = clipDur > 0 ? (time % clipDur) : 0;
+        const animTime = clipDur > 0 ? (t % clipDur) : 0;
         mixer.setTime(animTime);
       }
-      timeSlider.value = time;
-      updateTimeDisplays(time);
+      updateTimeDisplays(t);
     }
 
-    function stepFrame(step) {
+    function stepFrame(delta) {
       pause();
-      const dt = step / effectiveFps;
-      const cur = (sourceVideo && sourceVideo.src) ? sourceVideo.currentTime : (mixer ? mixer.time : 0);
-      seekTo(cur + dt);
+      const stepSec = 1.0 / effectiveFps;
+      const newTime = Math.max(0, Math.min(totalDuration, (parseFloat(timeSlider.value) || 0) + delta * stepSec));
+      timeSlider.value = newTime;
+      seekTo(newTime);
     }
 
     function setSpeed(spd) {
       playbackSpeed = spd;
-      if (sourceVideo) sourceVideo.playbackRate = spd;
-      if (mixer) mixer.timeScale = spd;
-      document.querySelectorAll('.controls-row button').forEach(b => {
+      document.querySelectorAll('#syncController .ctrl-group button').forEach(b => {
         if (b.innerText.endsWith('x')) b.classList.remove('active');
       });
+      if (sourceVideo && sourceVideo.src) sourceVideo.playbackRate = spd;
       event.target.classList.add('active');
     }
 
     function toggleLoop() {
       isLooping = !isLooping;
-      const btn = document.getElementById('loopBtn');
-      if (isLooping) btn.classList.add('active');
-      else btn.classList.remove('active');
+      document.getElementById('loopBtn').classList.toggle('active', isLooping);
+      if (sourceVideo) sourceVideo.loop = isLooping;
     }
 
     function toggleMute() {
-      if (!sourceVideo) return;
-      sourceVideo.muted = !sourceVideo.muted;
-      const btn = document.getElementById('muteBtn');
-      if (sourceVideo.muted) {
-        btn.classList.add('active');
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>Muted';
-      } else {
-        btn.classList.remove('active');
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.08"/></svg>Audio';
+      if (sourceVideo) {
+        sourceVideo.muted = !sourceVideo.muted;
+        document.getElementById('muteBtn').classList.toggle('active', sourceVideo.muted);
+        document.getElementById('muteBtn').innerText = sourceVideo.muted ? 'Muted' : 'Unmuted';
       }
     }
 
@@ -1159,7 +1518,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       framePill.innerText = `Frame ${currentFrame} / ${totalFrames}`;
     }
 
-    // Time Slider scrubbing events
+    // Time Slider scrubbing
     timeSlider.addEventListener('input', (e) => {
       isSeeking = true;
       seekTo(e.target.value);
@@ -1204,11 +1563,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           toggleLoop();
         } else if (e.code === 'KeyM') {
           toggleMute();
+        } else if (e.code === 'KeyR') {
+          resetCamera();
+        } else if (e.code === 'KeyB') {
+          toggleSkeleton();
+        } else if (e.code === 'KeyG') {
+          toggleGrid();
         }
       });
     }
 
-    // Diagnostics & File Input Handlers
+    // Diagnostics & File Handlers
     fetch('/api/diagnostics')
       .then(r => r.json())
       .then(d => {
@@ -1218,35 +1583,106 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     document.getElementById('mediaInput').addEventListener('change', (e) => {
       if (e.target.files[0]) {
-        selectedMedia = e.target.files[0];
-        document.getElementById('mediaName').innerText = selectedMedia.name;
-        document.getElementById('videoEmptyState').style.display = 'none';
-
-        const fileUrl = URL.createObjectURL(selectedMedia);
-        if (selectedMedia.type.startsWith('video/') || selectedMedia.name.match(/\.(mp4|mov|webm)$/i)) {
-          sourceImage.style.display = 'none';
-          sourceVideo.style.display = 'block';
-          sourceVideo.src = fileUrl;
-          sourceVideo.load();
-        } else {
-          sourceVideo.style.display = 'none';
-          sourceImage.style.display = 'block';
-          sourceImage.src = fileUrl;
-          videoMetaBadge.innerText = 'Static Image';
-        }
-        checkReady();
+        handleMediaFile(e.target.files[0]);
       }
     });
 
     document.getElementById('modelInput').addEventListener('change', (e) => {
       if (e.target.files[0]) {
-        selectedModel = e.target.files[0];
-        document.getElementById('modelName').innerText = selectedModel.name;
-        const url = URL.createObjectURL(selectedModel);
-        loadGLBModel(url);
-        checkReady();
+        handleModelFile(e.target.files[0]);
       }
     });
+
+    function handleMediaFile(file) {
+      selectedMedia = file;
+      document.getElementById('mediaName').innerText = file.name;
+      document.getElementById('mediaPill').style.display = 'flex';
+      document.getElementById('mediaZone').style.display = 'none';
+      document.getElementById('videoEmptyState').style.display = 'none';
+
+      const fileUrl = URL.createObjectURL(file);
+      if (file.type.startsWith('video/') || file.name.match(/\.(mp4|mov|webm)$/i)) {
+        sourceImage.style.display = 'none';
+        sourceVideo.style.display = 'block';
+        sourceVideo.src = fileUrl;
+        sourceVideo.load();
+      } else {
+        sourceVideo.style.display = 'none';
+        sourceImage.style.display = 'block';
+        sourceImage.src = fileUrl;
+        videoMetaBadge.innerText = 'Static Image';
+      }
+      checkReady();
+    }
+
+    function clearMedia(e) {
+      if (e) e.stopPropagation();
+      selectedMedia = null;
+      document.getElementById('mediaInput').value = '';
+      document.getElementById('mediaPill').style.display = 'none';
+      document.getElementById('mediaZone').style.display = 'block';
+      document.getElementById('videoEmptyState').style.display = 'flex';
+      sourceVideo.style.display = 'none';
+      sourceVideo.src = '';
+      sourceImage.style.display = 'none';
+      sourceImage.src = '';
+      videoMetaBadge.innerText = 'No media';
+      checkReady();
+    }
+
+    function handleModelFile(file) {
+      selectedModel = file;
+      document.getElementById('modelName').innerText = file.name;
+      document.getElementById('modelPill').style.display = 'flex';
+      document.getElementById('modelZone').style.display = 'none';
+      const url = URL.createObjectURL(file);
+      loadGLBModel(url);
+      checkReady();
+    }
+
+    function clearModel(e) {
+      if (e) e.stopPropagation();
+      selectedModel = null;
+      document.getElementById('modelInput').value = '';
+      document.getElementById('modelPill').style.display = 'none';
+      document.getElementById('modelZone').style.display = 'block';
+      document.getElementById('modelEmptyState').style.display = 'flex';
+      if (mixer) mixer.stopAllAction();
+      scene.children.filter(c => c.isGroup || c.isMesh || c.isSkeletonHelper).forEach(c => scene.remove(c));
+      modelMetaBadge.innerText = 'Waiting for model';
+      checkReady();
+    }
+
+    // One-click Sample Loaders
+    async function loadSampleVideo() {
+      try {
+        const res = await fetch('/api/samples/video');
+        if (!res.ok) throw new Error('Sample video not found on server');
+        const blob = await res.blob();
+        const file = new File([blob], '3 phone hold.mp4', { type: 'video/mp4' });
+        handleMediaFile(file);
+      } catch (e) {
+        alert('Could not load sample video: ' + e.message);
+      }
+    }
+
+    async function loadSampleModel() {
+      try {
+        const res = await fetch('/api/samples/model');
+        if (!res.ok) throw new Error('Sample model not found on server');
+        const blob = await res.blob();
+        const file = new File([blob], 'cyborg_oni.glb', { type: 'model/gltf-binary' });
+        handleModelFile(file);
+      } catch (e) {
+        alert('Could not load sample model: ' + e.message);
+      }
+    }
+
+    async function loadQuickDemo() {
+      await loadSampleVideo();
+      await loadSampleModel();
+      selectEngine('dwpose');
+    }
 
     function selectEngine(engine) {
       document.getElementById('selectedEngine').value = engine;
@@ -1264,14 +1700,29 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       const statusTitle = document.getElementById('statusTitle');
       const statusText = document.getElementById('statusText');
       const statusPercent = document.getElementById('statusPercent');
+      const statusTimer = document.getElementById('statusTimer');
       const progressBar = document.getElementById('progressBar');
 
+      const pill1 = document.getElementById('stepPill1');
+      const pill2 = document.getElementById('stepPill2');
+      const pill3 = document.getElementById('stepPill3');
+      const pill4 = document.getElementById('stepPill4');
+
       btn.disabled = true;
-      statusCard.style.display = 'block';
-      statusTitle.innerText = 'Initializing Pipeline';
+      statusCard.style.display = 'flex';
+      statusTitle.innerText = 'Pipeline Running';
       statusText.innerText = 'Preparing assets and initializing ML engine...';
       statusPercent.innerText = '0%';
       progressBar.style.width = '0%';
+
+      [pill1, pill2, pill3, pill4].forEach(p => p.className = 'step-pill');
+      pill1.classList.add('active');
+
+      const startTime = performance.now();
+      const timerInterval = setInterval(() => {
+        const elapsed = (performance.now() - startTime) / 1000;
+        statusTimer.innerText = `${elapsed.toFixed(1)}s`;
+      }, 100);
 
       const formData = new FormData();
       formData.append('media', selectedMedia);
@@ -1288,8 +1739,23 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             if (data.active && data.percent > 0) {
               progressBar.style.width = data.percent + '%';
               statusPercent.innerText = data.percent + '%';
-              statusTitle.innerText = data.step || 'Processing';
               statusText.innerText = data.message || 'Extracting motion...';
+
+              if (data.percent < 15) {
+                pill1.className = 'step-pill active';
+              } else if (data.percent < 70) {
+                pill1.className = 'step-pill done';
+                pill2.className = 'step-pill active';
+              } else if (data.percent < 85) {
+                pill1.className = 'step-pill done';
+                pill2.className = 'step-pill done';
+                pill3.className = 'step-pill active';
+              } else {
+                pill1.className = 'step-pill done';
+                pill2.className = 'step-pill done';
+                pill3.className = 'step-pill done';
+                pill4.className = 'step-pill active';
+              }
             }
           }
         } catch (e) {}
@@ -1302,15 +1768,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         });
 
         clearInterval(progressTimer);
+        clearInterval(timerInterval);
 
         if (!response.ok) {
           const err = await response.json();
           throw new Error(err.error || 'Animation pipeline failed');
         }
 
+        [pill1, pill2, pill3, pill4].forEach(p => p.className = 'step-pill done');
         statusPercent.innerText = '95%';
         progressBar.style.width = '95%';
-        statusText.innerText = 'Packing and loading animated character...';
+        statusText.innerText = 'Packing animated character...';
 
         const boneCountHeader = response.headers.get('X-Animated-Bones');
         if (boneCountHeader) {
@@ -1324,17 +1792,21 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         statusPercent.innerText = '100%';
         progressBar.style.width = '100%';
         statusTitle.innerText = 'Complete';
-        const boneNotice = lastAnimatedBoneCount > 0 ? ` (${lastAnimatedBoneCount} bones animated: spine, limbs, twists, fingers)` : '';
-        statusText.innerText = `Synced side-by-side playback ready!${boneNotice}`;
+        const totalSec = ((performance.now() - startTime) / 1000).toFixed(1);
+        statusTimer.innerText = `${totalSec}s`;
+        const boneNotice = lastAnimatedBoneCount > 0 ? ` (${lastAnimatedBoneCount} bones animated: spine, limbs, fingers)` : '';
+        statusText.innerText = `Synchronized playback ready!${boneNotice}`;
         document.getElementById('downloadBtn').style.display = 'flex';
       } catch (err) {
         clearInterval(progressTimer);
+        clearInterval(timerInterval);
         statusTitle.innerText = 'Pipeline Error';
         statusText.innerText = err.message;
         statusPercent.innerText = '0%';
         progressBar.style.width = '0%';
       } finally {
         clearInterval(progressTimer);
+        clearInterval(timerInterval);
         btn.disabled = false;
       }
     }
@@ -1385,6 +1857,32 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.end_headers()
             self.wfile.write(json.dumps(PIPELINE_PROGRESS).encode("utf-8"))
+
+        elif parsed_path.path == "/api/samples/video":
+            video_path = Path("vid/3 phone hold.mp4")
+            if video_path.exists():
+                data = video_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp4")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        elif parsed_path.path == "/api/samples/model":
+            model_path = Path("glb/cyborg_oni.glb")
+            if model_path.exists():
+                data = model_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "model/gltf-binary")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
 
         else:
             self.send_response(404)
