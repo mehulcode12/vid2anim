@@ -28,178 +28,560 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>vid2anim - Animate Any 3D Character</title>
+  <title>vid2anim - 3D Character Motion Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <style>
     :root {
-      --bg: #0d1117;
-      --card: #161b22;
-      --border: #30363d;
-      --accent: #58a6ff;
-      --accent-hover: #1f6feb;
-      --text: #c9d1d9;
+      --bg-dark: #07090e;
+      --bg-panel: #0d121f;
+      --bg-card: #141b2d;
+      --bg-card-hover: #1a233a;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(99, 102, 241, 0.35);
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --text: #cbd5e1;
       --text-bright: #ffffff;
-      --success: #238636;
-      --warning: #d29922;
+      --text-dim: #64748b;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg);
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-dark);
       color: var(--text);
       display: flex;
       flex-direction: column;
       height: 100vh;
       overflow: hidden;
+      user-select: none;
     }
     header {
-      padding: 16px 24px;
+      padding: 12px 24px;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: var(--card);
+      background: var(--bg-panel);
+      z-index: 10;
     }
-    header h1 {
-      font-size: 1.25rem;
-      color: var(--text-bright);
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: var(--accent-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
       display: flex;
       align-items: center;
       gap: 8px;
     }
+    .brand-pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
     .badge {
       font-size: 0.75rem;
-      padding: 3px 8px;
-      border-radius: 12px;
-      background: rgba(88, 166, 255, 0.15);
-      color: var(--accent);
-      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-device {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-sync {
+      background: rgba(6, 182, 212, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .badge-sync.active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
     }
     .main-container {
       display: grid;
-      grid-template-columns: 380px 1fr;
+      grid-template-columns: 350px 1fr;
       flex: 1;
       overflow: hidden;
     }
     .sidebar {
-      padding: 24px;
+      padding: 20px;
       border-right: 1px solid var(--border);
-      background: var(--card);
+      background: var(--bg-panel);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .input-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
     }
     .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: 8px;
-      padding: 20px;
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 16px 12px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.2s ease;
-      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(255, 255, 255, 0.015);
+      position: relative;
     }
     .upload-zone:hover, .upload-zone.dragover {
       border-color: var(--accent);
-      background: rgba(88, 166, 255, 0.05);
+      background: rgba(99, 102, 241, 0.06);
+      transform: translateY(-1px);
     }
-    .upload-zone p { font-size: 0.85rem; margin-top: 6px; color: #8b949e; }
-    .file-name { font-size: 0.8rem; color: var(--accent); margin-top: 6px; word-break: break-all; }
-    .input-group { display: flex; flex-direction: column; gap: 8px; }
-    .input-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-bright); }
+    .upload-zone svg {
+      stroke: #818cf8;
+      margin-bottom: 4px;
+    }
+    .upload-zone p { font-size: 0.8rem; color: var(--text-dim); }
+    .file-name {
+      font-size: 0.78rem;
+      color: #a5b4fc;
+      margin-top: 6px;
+      word-break: break-all;
+      font-weight: 500;
+    }
     select, button {
+      font-family: inherit;
       padding: 10px 14px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid var(--border);
-      background: #21262d;
+      background: var(--bg-card);
       color: var(--text-bright);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       cursor: pointer;
+      transition: all 0.2s;
+    }
+    select:focus, button:focus {
+      outline: none;
+      border-color: var(--accent);
     }
     button.primary {
-      background: var(--success);
-      border-color: rgba(255, 255, 255, 0.1);
+      background: var(--accent-grad);
+      border: none;
       font-weight: 600;
-      transition: background 0.2s;
-    }
-    button.primary:hover:not(:disabled) { background: #2ea043; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status-card {
+      font-size: 0.92rem;
       padding: 12px;
-      border-radius: 6px;
-      background: #21262d;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    button.primary:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status-card {
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       line-height: 1.4;
     }
+    .status-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
     .progress-bar-bg {
-      height: 8px;
-      background: #30363d;
-      border-radius: 4px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
       overflow: hidden;
       margin-top: 8px;
     }
     .progress-bar-fill {
       height: 100%;
-      background: var(--accent);
+      background: var(--accent-grad);
       width: 0%;
-      transition: width 0.3s;
+      transition: width 0.3s ease;
     }
-    .viewport-container {
-      position: relative;
-      background: #05070a;
+    .download-btn {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 8px;
     }
-    #viewport3d { width: 100%; height: 100%; }
-    .overlay-controls {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
+    .download-btn:hover {
+      background: rgba(16, 185, 129, 0.25);
+    }
+
+    /* Stage Area */
+    .stage-area {
       display: flex;
-      gap: 10px;
-      background: rgba(22, 27, 34, 0.85);
-      backdrop-filter: blur(8px);
-      padding: 8px 12px;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #04060a;
+    }
+    .stage-header {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 5;
+    }
+    .view-mode-tabs {
+      display: flex;
+      background: var(--bg-card);
+      padding: 3px;
       border-radius: 8px;
       border: 1px solid var(--border);
+      gap: 2px;
     }
-    .empty-state {
+    .view-tab {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .view-tab.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .stage-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Viewports Layout Container */
+    .viewports-container {
+      flex: 1;
+      display: grid;
+      overflow: hidden;
+      position: relative;
+    }
+    .viewports-container.mode-split {
+      grid-template-columns: 1fr 1fr;
+    }
+    .viewports-container.mode-3d {
+      grid-template-columns: 1fr;
+    }
+    .viewports-container.mode-3d #videoViewport {
+      display: none;
+    }
+    .viewports-container.mode-video {
+      grid-template-columns: 1fr;
+    }
+    .viewports-container.mode-video #modelViewport {
+      display: none;
+    }
+
+    .viewport-card {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: #050811;
+    }
+    .viewport-card:last-child {
+      border-right: none;
+    }
+    .viewport-tag {
       position: absolute;
-      text-align: center;
-      color: #8b949e;
+      top: 12px;
+      left: 12px;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(13, 18, 31, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+    .viewport-meta {
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Video player container */
+    #videoViewport {
+      align-items: center;
+      justify-content: center;
+      background: #020307;
+    }
+    #sourceVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: transparent;
+      outline: none;
+    }
+    #sourceImage {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    /* 3D Viewport container */
+    #modelViewport {
+      background: radial-gradient(circle at center, #0e1526 0%, #050811 100%);
+    }
+    #viewport3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .viewport-hints {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      z-index: 4;
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.35);
+      background: rgba(7, 9, 14, 0.7);
+      backdrop-filter: blur(4px);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
       pointer-events: none;
     }
-    .empty-state h3 { color: var(--text-bright); margin-bottom: 6px; }
+
+    /* Empty states */
+    .viewport-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--text-dim);
+      padding: 24px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .viewport-empty svg {
+      stroke: rgba(255, 255, 255, 0.15);
+      margin-bottom: 12px;
+    }
+    .viewport-empty h4 {
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .viewport-empty p {
+      font-size: 0.78rem;
+      max-width: 220px;
+    }
+
+    /* Bottom Docked Playback Bar */
+    .sync-controller {
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 6;
+    }
+    .timeline-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+    .time-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: #1e293b;
+      outline: none;
+      cursor: pointer;
+      position: relative;
+    }
+    .time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #818cf8;
+      box-shadow: 0 0 10px #6366f1;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      transition: transform 0.1s;
+    }
+    .time-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ctrl-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-bright);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ctrl-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .ctrl-btn.play-btn {
+      background: var(--accent);
+      border-color: var(--accent);
+      padding: 6px 16px;
+      font-weight: 600;
+    }
+    .ctrl-btn.play-btn:hover {
+      background: var(--accent-hover);
+    }
+    .ctrl-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--accent);
+      color: #a5b4fc;
+    }
+    .time-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 6px;
+    }
+    .frame-pill {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>vid2anim <span>AI Motion Retargeter</span></h1>
-    <div id="deviceBadge" class="badge">Loading device...</div>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        vid2anim
+      </div>
+      <div class="brand-pill">Universal Retargeting Studio</div>
+    </div>
+    <div class="header-actions">
+      <div id="syncBadge" class="badge badge-sync active">
+        <span class="badge-dot"></span>
+        <span id="syncText">Dual-Viewport Synced</span>
+      </div>
+      <div id="deviceBadge" class="badge badge-device">Loading device...</div>
+    </div>
   </header>
 
   <div class="main-container">
     <div class="sidebar">
       <!-- Media Upload -->
       <div class="input-group">
-        <label>1. Input Video or Photo (Max 30s)</label>
+        <label>1. Source Footage <span>Max 30s</span></label>
         <div class="upload-zone" onclick="document.getElementById('mediaInput').click()">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          <p>Drop MP4 video or JPG/PNG photo here</p>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <p>Drop MP4 / MOV video or photo</p>
           <div id="mediaName" class="file-name"></div>
         </div>
-        <input type="file" id="mediaInput" accept="video/mp4,video/quicktime,image/jpeg,image/png" style="display:none">
+        <input type="file" id="mediaInput" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png" style="display:none">
       </div>
 
       <!-- 3D Model Upload -->
       <div class="input-group">
-        <label>2. Target 3D Model</label>
+        <label>2. Target 3D Model <span>Rigged Mesh</span></label>
         <div class="upload-zone" onclick="document.getElementById('modelInput').click()">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           <p>Drop .GLB, .FBX, or .OBJ character</p>
           <div id="modelName" class="file-name"></div>
         </div>
@@ -210,36 +592,140 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <div class="input-group">
         <label>3. Compute Engine</label>
         <select id="deviceSelect">
-          <option value="cpu" selected>CPU (Recommended / Lightweight)</option>
-          <option value="cuda">GPU (NVIDIA CUDA)</option>
+          <option value="cpu" selected>CPU (Lightweight / Stable)</option>
+          <option value="cuda">GPU (NVIDIA CUDA Acceleration)</option>
         </select>
       </div>
 
       <!-- Action Button -->
       <button id="runBtn" class="primary" onclick="startAnimationPipeline()" disabled>Animate 3D Model</button>
 
-      <!-- Status -->
+      <!-- Status Card -->
       <div id="statusCard" class="status-card" style="display:none">
+        <div class="status-header">
+          <span id="statusTitle">Processing</span>
+          <span id="statusPercent" style="color:var(--cyan)">0%</span>
+        </div>
         <div id="statusText">Ready</div>
         <div class="progress-bar-bg">
           <div id="progressBar" class="progress-bar-fill"></div>
         </div>
       </div>
 
-      <button id="downloadBtn" onclick="downloadResult()" style="display:none">Download Animated .GLB</button>
+      <button id="downloadBtn" class="download-btn" onclick="downloadResult()" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Animated .GLB
+      </button>
     </div>
 
-    <!-- 3D Viewport -->
-    <div class="viewport-container">
-      <div id="emptyState" class="empty-state">
-        <h3>3D Character Viewport</h3>
-        <p>Upload a model and video to preview your animated character here.</p>
+    <!-- Main Stage Viewport Area -->
+    <div class="stage-area">
+      <div class="stage-header">
+        <div class="view-mode-tabs">
+          <button class="view-tab active" id="tabSplit" onclick="setViewMode('split')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="2"/><rect x="13" y="3" width="8" height="18" rx="2"/></svg>
+            Side-by-Side
+          </button>
+          <button class="view-tab" id="tab3d" onclick="setViewMode('3d')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            3D Focus
+          </button>
+          <button class="view-tab" id="tabVideo" onclick="setViewMode('video')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Video Only
+          </button>
+        </div>
+
+        <div class="stage-tools">
+          <select id="animSelect" onchange="switchAnimation(this.value)" style="display:none; font-size:0.75rem; padding:4px 8px;"></select>
+          <button class="ctrl-btn" onclick="resetCamera()" title="Reset 3D Camera">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Reset Cam
+          </button>
+        </div>
       </div>
-      <div id="viewport3d"></div>
-      <div class="overlay-controls" id="playbackControls" style="display:none">
-        <select id="animSelect" onchange="switchAnimation(this.value)" style="display:none; background:#161b22; color:#c9d1d9; border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px;"></select>
-        <button onclick="togglePlayback()">Play / Pause</button>
-        <button onclick="resetCamera()">Reset View</button>
+
+      <!-- Viewports Grid -->
+      <div class="viewports-container mode-split" id="viewportsContainer">
+        <!-- Video Viewport -->
+        <div class="viewport-card" id="videoViewport">
+          <div class="viewport-tag">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Original Video
+            <span id="videoMetaBadge" class="viewport-meta">No media</span>
+          </div>
+          <div id="videoEmptyState" class="viewport-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+            <h4>Reference Footage</h4>
+            <p>Upload a video on the left to preview original motion here</p>
+          </div>
+          <video id="sourceVideo" playsinline muted style="display:none"></video>
+          <img id="sourceImage" alt="Reference Image">
+        </div>
+
+        <!-- 3D Viewport -->
+        <div class="viewport-card" id="modelViewport">
+          <div class="viewport-tag">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Retargeted 3D Mesh
+            <span id="modelMetaBadge" class="viewport-meta">Waiting for model</span>
+          </div>
+          <div id="modelEmptyState" class="viewport-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <h4>3D Character Viewport</h4>
+            <p>Upload a .GLB/.FBX character to preview retargeted animations</p>
+          </div>
+          <div id="viewport3d"></div>
+          <div class="viewport-hints">Left Click: Rotate | Right Click: Pan | Scroll: Zoom</div>
+        </div>
+      </div>
+
+      <!-- Bottom Docked Synchronization Controller -->
+      <div class="sync-controller" id="syncController">
+        <div class="timeline-container">
+          <input type="range" id="timeSlider" class="time-slider" min="0" max="1" step="0.01" value="0">
+        </div>
+
+        <div class="controls-row">
+          <!-- Playback Controls -->
+          <div class="ctrl-group">
+            <button id="playBtn" class="ctrl-btn play-btn" onclick="togglePlayback()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>Play</span>
+            </button>
+            <button class="ctrl-btn" onclick="stepFrame(-1)" title="Previous Frame (Left Arrow)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+              -1 Frame
+            </button>
+            <button class="ctrl-btn" onclick="stepFrame(1)" title="Next Frame (Right Arrow)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+              +1 Frame
+            </button>
+            <div class="time-display">
+              <span id="timecodeText">00:00.00 / 00:00.00</span>
+              <span id="framePill" class="frame-pill">Frame 0 / 0</span>
+            </div>
+          </div>
+
+          <!-- Speed & Loop -->
+          <div class="ctrl-group">
+            <div style="display:flex; gap:2px; background:var(--bg-card); padding:2px; border-radius:6px; border:1px solid var(--border)">
+              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(0.25)">0.25x</button>
+              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(0.5)">0.5x</button>
+              <button class="ctrl-btn active" id="spd1x" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(1.0)">1.0x</button>
+              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(1.5)">1.5x</button>
+              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(2.0)">2.0x</button>
+            </div>
+            <button id="loopBtn" class="ctrl-btn active" onclick="toggleLoop()" title="Toggle Looping">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              Loop
+            </button>
+            <button id="muteBtn" class="ctrl-btn active" onclick="toggleMute()" title="Toggle Audio">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              Muted
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -249,7 +735,27 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     let selectedMedia = null, selectedModel = null, lastResultBlobUrl = null;
     let currentGltfClips = [];
 
-    // Init Three.js Scene
+    // Master Synchronization State
+    const sourceVideo = document.getElementById('sourceVideo');
+    const sourceImage = document.getElementById('sourceImage');
+    const timeSlider = document.getElementById('timeSlider');
+    const playBtn = document.getElementById('playBtn');
+    const timecodeText = document.getElementById('timecodeText');
+    const framePill = document.getElementById('framePill');
+    const videoMetaBadge = document.getElementById('videoMetaBadge');
+    const modelMetaBadge = document.getElementById('modelMetaBadge');
+    const syncBadge = document.getElementById('syncBadge');
+    const syncText = document.getElementById('syncText');
+
+    let isPlaying = false;
+    let isSeeking = false;
+    let isLooping = true;
+    let playbackSpeed = 1.0;
+    let effectiveFps = 25.0;
+    let totalDuration = 0.0;
+    let lastAnimatedBoneCount = 0;
+
+    // Initialize Three.js Viewport
     function init3D() {
       const container = document.getElementById('viewport3d');
       scene = new THREE.Scene();
@@ -271,49 +777,116 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
       scene.add(hemiLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.6);
       dirLight.position.set(2, 4, 3);
       scene.add(dirLight);
+
+      const backLight = new THREE.DirectionalLight(0x6366f1, 0.8);
+      backLight.position.set(-2, 2, -2);
+      scene.add(backLight);
 
       const grid = new THREE.GridHelper(10, 20, 0x30363d, 0x161b22);
       scene.add(grid);
 
       window.addEventListener('resize', onWindowResize);
+      if (window.ResizeObserver) {
+        new ResizeObserver(onWindowResize).observe(container);
+      }
+
+      setupKeyboardShortcuts();
+      setupVideoEvents();
       animate();
     }
 
     function onWindowResize() {
       const container = document.getElementById('viewport3d');
-      camera.aspect = container.clientWidth / container.clientHeight;
+      if (!container || !renderer || !camera) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(w, h);
     }
 
+    // Main Render & Synchronizer Loop
     function animate() {
       requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-      if (mixer) mixer.update(delta);
+
+      if (isPlaying && !isSeeking) {
+        let curTime = 0;
+
+        // If source video exists, use it as Master Hardware Clock
+        if (sourceVideo && sourceVideo.src && !sourceVideo.paused && sourceVideo.readyState >= 2) {
+          curTime = sourceVideo.currentTime;
+          if (mixer && currentAction) {
+            const clipDur = currentAction.getClip().duration;
+            const animTime = clipDur > 0 ? (curTime % clipDur) : 0;
+            mixer.setTime(animTime);
+          }
+        } else if (mixer && currentAction && !currentAction.paused) {
+          // Fallback to clock delta if 3D only
+          const delta = clock.getDelta();
+          mixer.update(delta * playbackSpeed);
+          const clipDur = currentAction.getClip().duration || 1;
+          curTime = mixer.time % clipDur;
+        }
+
+        timeSlider.value = curTime;
+        updateTimeDisplays(curTime);
+      }
+
       controls.update();
       renderer.render(scene, camera);
     }
 
-    // Load GLB into viewport
+    // Video Events & Sync
+    function setupVideoEvents() {
+      sourceVideo.addEventListener('loadedmetadata', () => {
+        totalDuration = Math.max(totalDuration, sourceVideo.duration);
+        timeSlider.max = totalDuration;
+        videoMetaBadge.innerText = `${sourceVideo.videoWidth}×${sourceVideo.videoHeight} • ${sourceVideo.duration.toFixed(1)}s`;
+        updateTimeDisplays(0);
+        syncBadge.className = 'badge badge-sync active';
+        syncText.innerText = 'Lockstep Sync Active';
+      });
+
+      sourceVideo.addEventListener('ended', () => {
+        if (isLooping) {
+          seekTo(0);
+          play();
+        } else {
+          pause();
+        }
+      });
+    }
+
+    // View Modes
+    function setViewMode(mode) {
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+      const container = document.getElementById('viewportsContainer');
+      container.className = 'viewports-container mode-' + mode;
+
+      if (mode === 'split') document.getElementById('tabSplit').classList.add('active');
+      else if (mode === '3d') document.getElementById('tab3d').classList.add('active');
+      else if (mode === 'video') document.getElementById('tabVideo').classList.add('active');
+
+      setTimeout(onWindowResize, 30);
+    }
+
+    // GLB Loading
     function loadGLBModel(url) {
-      document.getElementById('emptyState').style.display = 'none';
-      document.getElementById('playbackControls').style.display = 'flex';
+      document.getElementById('modelEmptyState').style.display = 'none';
 
       const loader = new THREE.GLTFLoader();
       loader.load(url, (gltf) => {
-        // Clear previous mixer and scene objects
-        if (mixer) {
-          mixer.stopAllAction();
-        }
+        if (mixer) mixer.stopAllAction();
         scene.children.filter(c => c.isGroup || c.isMesh).forEach(c => scene.remove(c));
 
         const model = gltf.scene;
         scene.add(model);
 
-        // Auto-frame camera to fit character bounding box regardless of metric/centimetric scale
+        // Frame camera to character bounding box
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
@@ -329,7 +902,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           controls.maxDistance = maxDim * 10;
           controls.update();
 
-          // Reposition ground grid helper to ground level
           const existingGrid = scene.children.find(c => c.isGridHelper);
           if (existingGrid) scene.remove(existingGrid);
           const grid = new THREE.GridHelper(maxDim * 3, 20, 0x30363d, 0x161b22);
@@ -341,28 +913,36 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         if (currentGltfClips.length > 0) {
           mixer = new THREE.AnimationMixer(model);
 
-          // Populate clip switcher
           const animSelect = document.getElementById('animSelect');
-          if (animSelect) {
-            animSelect.innerHTML = '';
-            currentGltfClips.forEach((clip, idx) => {
-              const opt = document.createElement('option');
-              opt.value = idx;
-              opt.textContent = (clip.name || `Track ${idx + 1}`) + ` (${clip.duration.toFixed(1)}s)`;
-              animSelect.appendChild(opt);
-            });
-            animSelect.style.display = currentGltfClips.length > 1 ? 'inline-block' : 'none';
-          }
+          animSelect.innerHTML = '';
+          currentGltfClips.forEach((clip, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx;
+            opt.textContent = (clip.name || `Track ${idx + 1}`) + ` (${clip.duration.toFixed(1)}s)`;
+            animSelect.appendChild(opt);
+          });
+          animSelect.style.display = currentGltfClips.length > 1 ? 'inline-block' : 'none';
 
-          // Prioritize newly retargeted Vid2Anim_Motion clip
           const targetClip = currentGltfClips.find(a => a.name === 'Vid2Anim_Motion') || currentGltfClips[0];
           const targetIdx = currentGltfClips.indexOf(targetClip);
-          if (animSelect && targetIdx >= 0) {
-            animSelect.value = targetIdx;
-          }
+          if (targetIdx >= 0) animSelect.value = targetIdx;
+
+          totalDuration = Math.max(totalDuration, targetClip.duration);
+          timeSlider.max = totalDuration;
 
           currentAction = mixer.clipAction(targetClip);
           currentAction.play();
+          currentAction.paused = !isPlaying;
+
+          const boneBadgeText = lastAnimatedBoneCount > 0 ? `${lastAnimatedBoneCount} Animated Bones` : `${targetClip.tracks.length} Tracks`;
+          modelMetaBadge.innerText = `${boneBadgeText} • ${targetClip.duration.toFixed(1)}s`;
+        } else {
+          modelMetaBadge.innerText = 'Static Neutral Pose';
+        }
+
+        seekTo(0);
+        if (sourceVideo && sourceVideo.src) {
+          play();
         }
       });
     }
@@ -372,12 +952,117 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       mixer.stopAllAction();
       currentAction = mixer.clipAction(currentGltfClips[idx]);
       currentAction.play();
+      currentAction.paused = !isPlaying;
+      totalDuration = Math.max(sourceVideo.duration || 0, currentGltfClips[idx].duration);
+      timeSlider.max = totalDuration;
+      seekTo(timeSlider.value);
     }
 
+    // Synchronized Playback Functions
     function togglePlayback() {
-      if (!currentAction) return;
-      currentAction.paused = !currentAction.paused;
+      if (isPlaying) pause();
+      else play();
     }
+
+    function play() {
+      isPlaying = true;
+      playBtn.className = 'ctrl-btn play-btn active';
+      playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause</span>';
+
+      if (sourceVideo && sourceVideo.src && !sourceVideo.ended) {
+        sourceVideo.play().catch(e => console.warn('Video play prevented:', e));
+      }
+      if (currentAction) {
+        currentAction.paused = false;
+      }
+    }
+
+    function pause() {
+      isPlaying = false;
+      playBtn.className = 'ctrl-btn play-btn';
+      playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Play</span>';
+
+      if (sourceVideo && sourceVideo.src) {
+        sourceVideo.pause();
+      }
+      if (currentAction) {
+        currentAction.paused = true;
+      }
+    }
+
+    function seekTo(t) {
+      const time = Math.max(0, Math.min(totalDuration, parseFloat(t)));
+      if (sourceVideo && sourceVideo.src) {
+        sourceVideo.currentTime = Math.min(time, sourceVideo.duration || time);
+      }
+      if (mixer && currentAction) {
+        const clipDur = currentAction.getClip().duration;
+        const animTime = clipDur > 0 ? (time % clipDur) : 0;
+        mixer.setTime(animTime);
+      }
+      timeSlider.value = time;
+      updateTimeDisplays(time);
+    }
+
+    function stepFrame(step) {
+      pause();
+      const dt = step / effectiveFps;
+      const cur = (sourceVideo && sourceVideo.src) ? sourceVideo.currentTime : (mixer ? mixer.time : 0);
+      seekTo(cur + dt);
+    }
+
+    function setSpeed(spd) {
+      playbackSpeed = spd;
+      if (sourceVideo) sourceVideo.playbackRate = spd;
+      if (mixer) mixer.timeScale = spd;
+      document.querySelectorAll('.controls-row button').forEach(b => {
+        if (b.innerText.endsWith('x')) b.classList.remove('active');
+      });
+      event.target.classList.add('active');
+    }
+
+    function toggleLoop() {
+      isLooping = !isLooping;
+      const btn = document.getElementById('loopBtn');
+      if (isLooping) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+
+    function toggleMute() {
+      if (!sourceVideo) return;
+      sourceVideo.muted = !sourceVideo.muted;
+      const btn = document.getElementById('muteBtn');
+      if (sourceVideo.muted) {
+        btn.classList.add('active');
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>Muted';
+      } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.08"/></svg>Audio';
+      }
+    }
+
+    function updateTimeDisplays(cur) {
+      const formatTime = (s) => {
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        const ms = Math.floor((s % 1) * 100);
+        return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+      };
+      timecodeText.innerText = `${formatTime(cur)} / ${formatTime(totalDuration)}`;
+      const currentFrame = Math.round(cur * effectiveFps);
+      const totalFrames = Math.round(totalDuration * effectiveFps);
+      framePill.innerText = `Frame ${currentFrame} / ${totalFrames}`;
+    }
+
+    // Time Slider scrubbing events
+    timeSlider.addEventListener('input', (e) => {
+      isSeeking = true;
+      seekTo(e.target.value);
+    });
+    timeSlider.addEventListener('change', (e) => {
+      isSeeking = false;
+      seekTo(e.target.value);
+    });
 
     function resetCamera() {
       const existingModel = scene.children.find(c => c.isGroup);
@@ -398,7 +1083,27 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       }
     }
 
-    // Diagnostics & File Selection
+    function setupKeyboardShortcuts() {
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+        if (e.code === 'Space') {
+          e.preventDefault();
+          togglePlayback();
+        } else if (e.code === 'ArrowLeft') {
+          e.preventDefault();
+          stepFrame(-1);
+        } else if (e.code === 'ArrowRight') {
+          e.preventDefault();
+          stepFrame(1);
+        } else if (e.code === 'KeyL') {
+          toggleLoop();
+        } else if (e.code === 'KeyM') {
+          toggleMute();
+        }
+      });
+    }
+
+    // Diagnostics & File Input Handlers
     fetch('/api/diagnostics')
       .then(r => r.json())
       .then(d => {
@@ -410,6 +1115,20 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       if (e.target.files[0]) {
         selectedMedia = e.target.files[0];
         document.getElementById('mediaName').innerText = selectedMedia.name;
+        document.getElementById('videoEmptyState').style.display = 'none';
+
+        const fileUrl = URL.createObjectURL(selectedMedia);
+        if (selectedMedia.type.startsWith('video/') || selectedMedia.name.match(/\.(mp4|mov|webm)$/i)) {
+          sourceImage.style.display = 'none';
+          sourceVideo.style.display = 'block';
+          sourceVideo.src = fileUrl;
+          sourceVideo.load();
+        } else {
+          sourceVideo.style.display = 'none';
+          sourceImage.style.display = 'block';
+          sourceImage.src = fileUrl;
+          videoMetaBadge.innerText = 'Static Image';
+        }
         checkReady();
       }
     });
@@ -418,7 +1137,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       if (e.target.files[0]) {
         selectedModel = e.target.files[0];
         document.getElementById('modelName').innerText = selectedModel.name;
-        // Preview local model in 3D right away
         const url = URL.createObjectURL(selectedModel);
         loadGLBModel(url);
         checkReady();
@@ -432,13 +1150,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     async function startAnimationPipeline() {
       const btn = document.getElementById('runBtn');
       const statusCard = document.getElementById('statusCard');
+      const statusTitle = document.getElementById('statusTitle');
       const statusText = document.getElementById('statusText');
+      const statusPercent = document.getElementById('statusPercent');
       const progressBar = document.getElementById('progressBar');
 
       btn.disabled = true;
       statusCard.style.display = 'block';
-      statusText.innerText = 'Uploading assets and extracting 3D motion...';
-      progressBar.style.width = '20%';
+      statusTitle.innerText = 'Processing Motion';
+      statusText.innerText = 'Extracting 3D human pose landmarks...';
+      statusPercent.innerText = '25%';
+      progressBar.style.width = '25%';
 
       const formData = new FormData();
       formData.append('media', selectedMedia);
@@ -446,8 +1168,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       formData.append('device', document.getElementById('deviceSelect').value);
 
       try {
-        progressBar.style.width = '45%';
-        statusText.innerText = 'Retargeting kinematic motion onto character...';
+        statusPercent.innerText = '55%';
+        progressBar.style.width = '55%';
+        statusText.innerText = 'Solving hierarchical kinematics & retargeting bones...';
 
         const response = await fetch('/api/animate', {
           method: 'POST',
@@ -459,20 +1182,29 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           throw new Error(err.error || 'Animation pipeline failed');
         }
 
+        statusPercent.innerText = '90%';
         progressBar.style.width = '90%';
-        statusText.innerText = 'Packing and loading animated character...';
+        statusText.innerText = 'Exporting animated GLB binary...';
 
-        const boneCount = response.headers.get('X-Animated-Bones');
+        const boneCountHeader = response.headers.get('X-Animated-Bones');
+        if (boneCountHeader) {
+          lastAnimatedBoneCount = parseInt(boneCountHeader, 10);
+        }
+
         const blob = await response.blob();
         lastResultBlobUrl = URL.createObjectURL(blob);
         loadGLBModel(lastResultBlobUrl);
 
+        statusPercent.innerText = '100%';
         progressBar.style.width = '100%';
-        const boneInfo = boneCount ? ` (${boneCount} bones animated: toes, spine, twists, fingers)` : '';
-        statusText.innerText = `Animation complete!${boneInfo} Playing in 3D viewport.`;
-        document.getElementById('downloadBtn').style.display = 'block';
+        statusTitle.innerText = 'Complete';
+        const boneNotice = lastAnimatedBoneCount > 0 ? ` (${lastAnimatedBoneCount} bones animated: spine, limbs, twists, fingers)` : '';
+        statusText.innerText = `Synced side-by-side playback ready!${boneNotice}`;
+        document.getElementById('downloadBtn').style.display = 'flex';
       } catch (err) {
-        statusText.innerText = 'Error: ' + err.message;
+        statusTitle.innerText = 'Pipeline Error';
+        statusText.innerText = err.message;
+        statusPercent.innerText = '0%';
         progressBar.style.width = '0%';
       } finally {
         btn.disabled = false;
