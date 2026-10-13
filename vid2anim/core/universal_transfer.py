@@ -13,6 +13,7 @@ Character Creator, Rigify, VRM, UE5, Daz3D, Sketchfab) using:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 import numpy as np
 
@@ -148,6 +149,60 @@ class UniversalTransferSolver:
             m[:3, :3] = r_mat @ np.diag(s)
             m[:3, 3] = t
             self.rest_local_mat[idx] = m
+
+        # Check if model has a pre-existing rest/pose animation (e.g. 'pose', 'rest', 'idle')
+        # that defines preferred stowed/folded transforms for accessory bones (wings, swords, tail, boosters).
+        self.accessory_baseline_rot: Dict[int, np.ndarray] = {}
+        self.accessory_baseline_trans: Dict[int, np.ndarray] = {}
+        model_path = getattr(self.rig_info, "file_path", None)
+        if model_path and Path(model_path).exists() and gltf_data.get("animations"):
+            try:
+                import struct
+                with open(model_path, "rb") as f_glb:
+                    f_glb.seek(12)
+                    j_len = int.from_bytes(f_glb.read(4), "little")
+                    f_glb.seek(12 + 8 + j_len)
+                    b_len = int.from_bytes(f_glb.read(4), "little")
+                    f_glb.read(4)
+                    bin_data = f_glb.read(b_len)
+
+                anims = gltf_data.get("animations", [])
+                preferred_anim = next(
+                    (a for a in anims if any(p in a.get("name", "").lower() for p in ["pose", "rest", "idle", "default"])),
+                    None,
+                )
+                if preferred_anim:
+                    mapped_target_names = set(self.rig_info.bone_mapping.values())
+                    for ch in preferred_anim.get("channels", []):
+                        n_idx = ch["target"].get("node")
+                        path_str = ch["target"].get("path")
+                        if n_idx is None or n_idx not in self.idx_to_name:
+                            continue
+                        name_node = self.idx_to_name[n_idx]
+                        if name_node in mapped_target_names:
+                            continue
+                        s_idx = ch["sampler"]
+                        out_acc_idx = preferred_anim["samplers"][s_idx]["output"]
+                        acc = gltf_data["accessors"][out_acc_idx]
+                        bv = gltf_data["bufferViews"][acc["bufferView"]]
+                        offset = bv.get("byteOffset", 0) + acc.get("byteOffset", 0)
+                        if path_str == "rotation":
+                            q_val = struct.unpack("<4f", bin_data[offset : offset + 16])
+                            self.accessory_baseline_rot[n_idx] = np.array(q_val, dtype=np.float64)
+                        elif path_str == "translation":
+                            t_val = struct.unpack("<3f", bin_data[offset : offset + 12])
+                            self.accessory_baseline_trans[n_idx] = np.array(t_val, dtype=np.float64)
+            except Exception:
+                pass
+
+        # Apply accessory baseline transforms into rest_local_quat and rest_local_trans
+        for acc_idx, acc_q in self.accessory_baseline_rot.items():
+            self.rest_local_quat[acc_idx] = acc_q
+            r_mat = quat_xyzw_to_matrix(acc_q)
+            self.rest_local_mat[acc_idx][:3, :3] = r_mat
+        for acc_idx, acc_t in self.accessory_baseline_trans.items():
+            self.rest_local_trans[acc_idx] = acc_t
+            self.rest_local_mat[acc_idx][:3, 3] = acc_t
 
         # Build topological sort of node hierarchy (parents strictly precede children)
         self.topological_order: List[int] = self._build_topological_order()
@@ -288,6 +343,53 @@ class UniversalTransferSolver:
                     if p_idx is not None:
                         self.share_bones[idx] = (p_idx, weight, p_canon)
 
+            elif any(k in name_l for k in ["butt", "glute", "ass", "buttock", "pelvis_"]):
+                side_str = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
+                p_canon = f"{side_str}_upleg"
+                weight = 0.35
+                if p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.share_bones[idx] = (p_idx, weight, p_canon)
+
+            elif any(k in name_l for k in ["legbooster", "regbooster", "thighwing", "hipwing", "hipbooster"]):
+                side_str = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
+                p_canon = f"{side_str}_upleg"
+                weight = 0.20
+                if p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.share_bones[idx] = (p_idx, weight, p_canon)
+
+            elif any(k in name_l for k in ["tail_mount", "boosterpod"]):
+                p_canon = "hips"
+                weight = 0.25
+                if p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.share_bones[idx] = (p_idx, weight, p_canon)
+
+            elif "tail" in name_l:
+                p_canon = "hips"
+                weight = 0.30
+                if p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.share_bones[idx] = (p_idx, weight, p_canon)
+
+            elif "pelvis" in name_l and idx != self.name_to_idx.get(self.rig_info.bone_mapping.get("hips")):
+                p_canon = "hips"
+                weight = 0.50
+                if p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.share_bones[idx] = (p_idx, weight, p_canon)
+
         # Discover finger bones for procedural relaxed posing & dynamic flexion
         import re
         self.finger_bones: List[Tuple[int, str, int, bool]] = []
@@ -309,6 +411,21 @@ class UniversalTransferSolver:
                     phalanx = 1
                 is_thumb = "thumb" in name_l
                 self.finger_bones.append((idx, side, phalanx, is_thumb))
+
+        # Discover detached waist / hip accessory nodes (e.g. swords, scabbards, holsters, pouches, skirts)
+        # that are siblings of the hips (children of hips' parent node)
+        self.detached_hip_accessories: List[int] = []
+        root_bone = self.rig_info.bone_mapping.get("hips")
+        if root_bone and root_bone in self.name_to_idx:
+            root_idx = self.name_to_idx[root_bone]
+            root_parent = self.parent_of.get(root_idx)
+            if root_parent is not None:
+                for child_idx in self.children_of.get(root_parent, []):
+                    if child_idx == root_idx:
+                        continue
+                    ch_name_l = self.idx_to_name[child_idx].lower()
+                    if any(k in ch_name_l for k in ["sword", "blade", "sheath", "scabbard", "holster", "weapon", "pouch", "skirt", "gun", "dagger"]):
+                        self.detached_hip_accessories.append(child_idx)
 
         self.node_translations: Dict[str, np.ndarray] = {}
         self._build_finger_curl_axes()
@@ -872,5 +989,16 @@ class UniversalTransferSolver:
         for ik_idx, track in ik_translations.items():
             ik_name = self.idx_to_name[ik_idx]
             self.node_translations[ik_name] = track
+
+        # Animate detached hip accessories so they follow the hips across the floor
+        for acc_idx in self.detached_hip_accessories:
+            acc_name = self.idx_to_name[acc_idx]
+            self.node_translations[acc_name] = root_trans
+
+        # Retain static baseline folded rotations for any accessory bones
+        for acc_idx, acc_q in self.accessory_baseline_rot.items():
+            acc_name = self.idx_to_name[acc_idx]
+            if acc_name not in bone_rotations:
+                bone_rotations[acc_name] = np.tile(acc_q.astype(np.float32), (num_frames, 1))
 
         return bone_rotations, root_trans

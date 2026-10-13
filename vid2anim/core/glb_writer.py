@@ -165,7 +165,7 @@ class GLBAnimationExporter:
         # Add translation tracks for hips and any animated helper/IK nodes
         node_translations: Dict[str, np.ndarray] = dict(getattr(animation, "node_translations", {}))
         root_bone = rig_info.bone_mapping.get("hips")
-        if not node_translations and root_bone and len(animation.root_translations) > 0:
+        if root_bone and root_bone not in node_translations and len(animation.root_translations) > 0:
             node_translations[root_bone] = animation.root_translations
 
         for trans_bone_name, trans_array in node_translations.items():
