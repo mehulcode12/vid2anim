@@ -1798,8 +1798,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         clearInterval(timerInterval);
 
         if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error || 'Animation pipeline failed');
+          let errMsg = 'Animation pipeline failed';
+          try {
+            const err = await response.json();
+            errMsg = err.error || errMsg;
+          } catch (_) {
+            errMsg = `Server error (HTTP ${response.status})`;
+          }
+          throw new Error(errMsg);
         }
 
         [pill1, pill2, pill3, pill4].forEach(p => p.className = 'step-pill done');
@@ -2180,10 +2186,17 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Missing 'media' or 'model' field in upload"}).encode("utf-8"))
                 return
 
-            media_info = fields["media"]
-            model_info = fields["model"]
+            if not media_info.get("data") or not model_info.get("data"):
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Empty file received for media or model"}).encode("utf-8"))
+                return
+
             device_str = fields.get("device", "auto")
+            device_str = device_str.strip().lower() if isinstance(device_str, str) else "auto"
             engine_str = fields.get("engine", "mediapipe")
+            engine_str = engine_str.strip().lower() if isinstance(engine_str, str) else "mediapipe"
 
             def on_progress(step: str, progress: float, message: str) -> None:
                 if step == "EXTRACT":

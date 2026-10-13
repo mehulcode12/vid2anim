@@ -228,6 +228,7 @@ def test_glb_binary_container_integrity():
             json_len = int.from_bytes(f.read(4), "little")
             json_type = f.read(4)
             assert json_type == b"JSON"
+            assert json_len % 4 == 0, "JSON chunk length must be 4-byte aligned per glTF 2.0 spec"
             json_bytes = f.read(json_len)
             gltf_json = json.loads(json_bytes.decode("utf-8"))
 
@@ -235,6 +236,7 @@ def test_glb_binary_container_integrity():
             bin_len = int.from_bytes(f.read(4), "little")
             bin_type = f.read(4)
             assert bin_type == b"BIN\x00"
+            assert bin_len % 4 == 0, "BIN chunk length must be 4-byte aligned per glTF 2.0 spec"
 
         # Check animations block
         assert "animations" in gltf_json

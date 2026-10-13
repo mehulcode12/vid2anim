@@ -226,13 +226,18 @@ class GLBAnimationExporter:
             # Prepend at index 0 so Vid2Anim_Motion is always the default active track
             gltf_data["animations"].insert(0, new_clip)
 
+        # Ensure BIN chunk is 4-byte aligned
+        _pad_4bytes(bin_appended)
+
         # Update primary buffer size in JSON
         if "buffers" in gltf_data and len(gltf_data["buffers"]) > 0:
             gltf_data["buffers"][0]["byteLength"] = len(bin_appended)
 
-        # Write new binary GLB
+        # Write new binary GLB (JSON chunk must be padded with 0x20 spaces per glTF 2.0 spec)
         new_json_bytes = json.dumps(gltf_data, separators=(",", ":")).encode("utf-8")
-        _pad_4bytes(new_json_bytes)
+        rem_json = len(new_json_bytes) % 4
+        if rem_json != 0:
+            new_json_bytes += b" " * (4 - rem_json)
 
         json_len = len(new_json_bytes)
         bin_len = len(bin_appended)
@@ -258,9 +263,8 @@ class GLBAnimationExporter:
         return out
 
 
-def _pad_4bytes(buffer: bytearray | bytes) -> None:
-    """Pad buffer with zeros or spaces to 4-byte alignment."""
+def _pad_4bytes(buffer: bytearray) -> None:
+    """Pad buffer with zeros to 4-byte alignment."""
     rem = len(buffer) % 4
     if rem != 0:
-        if isinstance(buffer, bytearray):
-            buffer.extend(b"\x00" * (4 - rem))
+        buffer.extend(b"\x00" * (4 - rem))

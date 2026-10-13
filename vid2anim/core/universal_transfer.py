@@ -878,6 +878,8 @@ class UniversalTransferSolver:
 
                         r_torso_delta = r_chest_w @ r_hips_w.T
                         q_torso = matrix_to_quat_xyzw(r_torso_delta)
+                        if q_torso[3] < 0.0:
+                            q_torso = -q_torso
                         half_angle = float(np.arccos(np.clip(q_torso[3], -1.0, 1.0)))
                         frac_half = half_angle * 0.40
                         sin_h = float(np.sin(half_angle))
@@ -921,6 +923,8 @@ class UniversalTransferSolver:
                             r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
                             if "head" in self.rig_info.bone_mapping and self.rig_info.bone_mapping["head"] in self.name_to_idx:
                                 q_delta = matrix_to_quat_xyzw(r_delta)
+                                if q_delta[3] < 0.0:
+                                    q_delta = -q_delta
                                 half_angle = float(np.arccos(np.clip(q_delta[3], -1.0, 1.0)))
                                 frac_half = half_angle * 0.55
                                 sin_h = float(np.sin(half_angle))
@@ -1066,6 +1070,8 @@ class UniversalTransferSolver:
                 norm_q = float(np.linalg.norm(q_twist))
                 if norm_q > 1e-6:
                     q_twist /= norm_q
+                    if q_twist[3] < 0.0:
+                        q_twist = -q_twist
                     half_angle = float(np.arccos(np.clip(q_twist[3], -1.0, 1.0)))
                     frac_half = half_angle * weight
                     sin_h = float(np.sin(half_angle))
@@ -1088,6 +1094,8 @@ class UniversalTransferSolver:
                 r_prim_rest = quat_xyzw_to_matrix(self.rest_local_quat[p_idx])
                 r_delta = r_prim_loc @ r_prim_rest.T
                 q_delta = matrix_to_quat_xyzw(r_delta)
+                if q_delta[3] < 0.0:
+                    q_delta = -q_delta
                 half_angle = float(np.arccos(np.clip(q_delta[3], -1.0, 1.0)))
                 frac_half = half_angle * weight
                 sin_h = float(np.sin(half_angle))

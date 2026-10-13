@@ -72,3 +72,18 @@ def test_server_progress_endpoint(running_server):
     assert "message" in data
 
 
+def test_server_empty_upload_rejected(running_server):
+    """Test that POST /api/animate rejects invalid non-multipart or empty uploads with 400."""
+    try:
+        req = urllib.request.Request(
+            f"{running_server}/api/animate",
+            data=b"invalid_raw_body",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req)
+        assert False, "Should have raised HTTPError 400"
+    except urllib.error.HTTPError as e:
+        assert e.code == 400
+
+

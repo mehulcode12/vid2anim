@@ -105,7 +105,7 @@ def parse_glb_json(glb_path: Path) -> tuple[dict[str, Any], int]:
         if chunk_type != b"JSON":
             raise ValueError("Expected JSON chunk in GLB")
         
-        json_data = f.read(chunk_len).decode("utf-8")
+        json_data = f.read(chunk_len).decode("utf-8", errors="ignore").strip()
         gltf = json.loads(json_data)
         
         # Estimate vertex count from accessors if available
@@ -617,7 +617,13 @@ class TopologicalRigSolver:
         if not roots and nodes:
             roots = [0]
 
+        visited: set[int] = set()
+
         def _fk(idx: int, p_pos: np.ndarray, p_rot: np.ndarray) -> None:
+            if idx in visited:
+                return
+            visited.add(idx)
+
             n = nodes[idx]
             loc_t = np.array(n.get("translation", [0.0, 0.0, 0.0]), dtype=np.float32)
             loc_r = np.array(n.get("rotation", [0.0, 0.0, 0.0, 1.0]), dtype=np.float32)

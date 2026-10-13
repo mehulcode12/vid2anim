@@ -161,5 +161,5 @@ class Vid2AnimPipeline:
             raise FileNotFoundError(f"Input media does not exist: {self.config.input_media}")
         if not self.config.target_model.exists():
             raise FileNotFoundError(f"Target 3D model does not exist: {self.config.target_model}")
-        if self.config.max_duration_sec <= 0.0 or self.config.max_duration_sec > 60.0:
-            raise ValueError(f"Max video duration must be between 1 and 60 seconds (got {self.config.max_duration_sec})")
+        if self.config.max_duration_sec <= 0.0 or self.config.max_duration_sec > 600.0:
+            raise ValueError(f"Max video duration must be between 1 and 600 seconds (got {self.config.max_duration_sec})")
