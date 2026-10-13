@@ -85,7 +85,8 @@ class UniversalRetargeter:
             try:
                 gltf_data, _ = parse_glb_json(Path(model_path))
                 solver = UniversalTransferSolver(gltf_data, rig)
-                bone_rotations, root_translations = solver.transfer_motion(canonical_motion)
+                bone_rotations, root_translations = solver.transfer_motion(canonical_motion, raw_motion=motion)
+
 
                 self.reporter.report("RETARGET", 1.0, "Kinematic basis retargeting complete.")
                 return RetargetedAnimation(

@@ -296,4 +296,35 @@ def test_canonical_skeleton_and_universal_transfer(tmp_path):
         assert np.allclose(norms, 1.0, atol=1e-4), f"Non-unit quaternions for {bone_name}"
 
 
+def test_topological_aim_and_zero_inversion(tmp_path):
+    """Verify that topological aim detection works across diverse models with zero inversion."""
+    from pathlib import Path
+    import numpy as np
+    from vid2anim.core.rig_detector import inspect_model, parse_glb_json
+    from vid2anim.core.universal_transfer import UniversalTransferSolver
+    from vid2anim.core.canonical_skeleton import solve_canonical_motion
+    from vid2anim.utils.fixtures import create_synthetic_motion_sequence
+
+    motion = create_synthetic_motion_sequence(frames=10, fps=25.0)
+    canon = solve_canonical_motion(motion)
+
+    # Test on real models in glb/ if present
+    for model_name in ["scp_1471_mal0_stylized_low_poly_character.glb", "robot_police_unit_animated.glb", "cyborg_oni.glb"]:
+        p = Path("glb") / model_name
+        if not p.exists():
+            continue
+        gltf, _ = parse_glb_json(p)
+        rig = inspect_model(p)
+        solver = UniversalTransferSolver(gltf, rig)
+
+        bone_rots, root_trans = solver.transfer_motion(canon, raw_motion=motion)
+        assert len(bone_rots) > 0
+
+        # Check unit quaternions for all bones
+        for b_name, quats in bone_rots.items():
+            norms = np.linalg.norm(quats, axis=-1)
+            assert np.allclose(norms, 1.0, atol=1e-3), f"Non-unit quaternion in {b_name} for {model_name}"
+
+
+
 

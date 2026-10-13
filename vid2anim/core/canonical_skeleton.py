@@ -122,6 +122,7 @@ class CanonicalMotion:
     timestamps: np.ndarray  # (F,) in seconds
     r_anim: List[Dict[str, np.ndarray]]  # Frame -> (joint -> 3x3 rotation matrix)
     hips_translations: np.ndarray  # (F, 3) in canonical meters
+    joint_positions: Optional[Dict[str, np.ndarray]] = None  # (joint -> (F, 3)) in canonical space
 
 
 def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
@@ -297,6 +298,13 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         for j in CANONICAL_JOINTS_ORDER:
             prev_r_anim[j] = r_anim[j]
 
+    # Canonical joint positions
+    canon_joint_positions = {
+        j: np.array([get_pos(j, f) for f in range(num_frames)], dtype=np.float64)
+        for j in CANONICAL_JOINTS_ORDER
+        if j in motion.joint_positions
+    }
+
     return CanonicalMotion(
         frame_count=num_frames,
         fps=motion.fps,
@@ -304,4 +312,6 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         timestamps=motion.timestamps,
         r_anim=r_anim_frames,
         hips_translations=hips_translations,
+        joint_positions=canon_joint_positions,
     )
+

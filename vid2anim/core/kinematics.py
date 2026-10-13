@@ -178,12 +178,13 @@ def continue_quaternion_xyzw(q_curr: np.ndarray, q_prev: Optional[np.ndarray]) -
     return q_curr.copy()
 
 
-# Mapping from Human tracking space (MediaPipe / SMPL: right=+X, up=+Y, forward=-Z)
+# Mapping from MediaPipe world tracking space (left=+X, up=+Y, forward=+Z)
 # to 3D model world space (left=+X, up=+Y, forward=+Z):
-# RotY(180) reflection-free proper rotation
-R_BODY_ALIGN = np.diag([-1.0, 1.0, -1.0])
+# Both are standardized right-handed Y-up coordinates.
+R_BODY_ALIGN = np.eye(3, dtype=np.float64)
 
 
 def human_to_canonical(p: np.ndarray) -> np.ndarray:
     """Map human joint coordinates (m) to canonical 3D model world space."""
     return np.asarray(p, dtype=np.float64) @ R_BODY_ALIGN.T
+
