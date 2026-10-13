@@ -35,4 +35,6 @@ outputs/
 vid/
 glb/
 weights/
+models/
+*.task
 .pytest_cache/

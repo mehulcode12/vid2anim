@@ -108,15 +108,65 @@ class MotionExtractor:
         else:
             raise ValueError(f"Unsupported media format: {suffix}")
 
+    @staticmethod
+    def _ensure_pose_landmarker_model() -> Optional[Path]:
+        """Ensure pose_landmarker_lite.task model is available, downloading if needed."""
+        # 1. Local models/
+        local_model = Path("models") / "pose_landmarker_lite.task"
+        if local_model.exists():
+            return local_model
+
+        # 2. User cache directory
+        cache_dir = Path.home() / ".cache" / "vid2anim"
+        cached_model = cache_dir / "pose_landmarker_lite.task"
+        if cached_model.exists():
+            return cached_model
+
+        # 3. Download to cache
+        try:
+            import urllib.request
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            url = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
+            urllib.request.urlretrieve(url, cached_model)
+            return cached_model
+        except Exception:
+            return None
+
     def _extract_photo(self, image_path: Path) -> MotionSequence:
-        """Extract single-frame static 3D pose from a photo."""
+        """Extract single-frame 3D pose from a photo."""
         self.reporter.report("EXTRACT", 0.1, f"Analyzing photo: {image_path.name} on {self.device.upper()}")
+        positions_3d = None
+
         try:
             import cv2
             img = cv2.imread(str(image_path))
-            positions_3d = self._estimate_frame_3d_pose(img) if img is not None else self._generate_default_human_frame()
-        except ImportError:
-            self.reporter.report("EXTRACT", 0.5, "[NOTE] OpenCV not found. Using fallback geometric pose estimation.")
+            if img is not None:
+                model_path = self._ensure_pose_landmarker_model()
+                if model_path:
+                    try:
+                        import mediapipe as mp
+                        from mediapipe.tasks.python import BaseOptions
+                        from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode
+
+                        options = PoseLandmarkerOptions(
+                            base_options=BaseOptions(model_asset_path=str(model_path)),
+                            running_mode=RunningMode.IMAGE,
+                            num_poses=1,
+                        )
+                        with PoseLandmarker.create_from_options(options) as landmarker:
+                            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                            mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                            res = landmarker.detect(mp_img)
+                            if res.pose_world_landmarks and len(res.pose_world_landmarks) > 0:
+                                positions_3d = self._map_mediapipe_landmarks(res.pose_world_landmarks[0])
+                    except Exception:
+                        pass
+                if positions_3d is None:
+                    positions_3d = self._estimate_frame_3d_pose(img)
+        except Exception:
+            pass
+
+        if positions_3d is None:
             positions_3d = self._generate_default_human_frame()
 
         self.reporter.report("EXTRACT", 1.0, "3D pose extracted successfully from photo.")
@@ -149,7 +199,7 @@ class MotionExtractor:
             from ..utils.fixtures import create_synthetic_motion_sequence
             return create_synthetic_motion_sequence(frames=30, fps=30.0)
 
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         max_frames = int(fps * max_duration_sec)
         frames_to_process = min(total_frames, max_frames) if total_frames > 0 else max_frames
@@ -164,32 +214,78 @@ class MotionExtractor:
         root_trans_list: List[np.ndarray] = []
         timestamps: List[float] = []
 
-        frame_idx = 0
-        while cap.isOpened() and frame_idx < frames_to_process:
-            ret, frame = cap.read()
-            if not ret:
-                break
+        # Setup MediaPipe PoseLandmarker in VIDEO mode if available
+        landmarker = None
+        model_path = self._ensure_pose_landmarker_model()
+        if model_path:
+            try:
+                import mediapipe as mp
+                from mediapipe.tasks.python import BaseOptions
+                from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode
 
-            curr_time = frame_idx / fps
-            timestamps.append(curr_time)
-
-            # Estimate 3D joint landmarks for this frame
-            frame_joints = self._estimate_frame_3d_pose(frame)
-            for j_name in CANONICAL_JOINTS:
-                all_frames_joints[j_name].append(frame_joints[j_name])
-
-            root_trans_list.append(frame_joints["hips"])
-            frame_idx += 1
-
-            if frame_idx % 15 == 0 or frame_idx == frames_to_process:
-                progress = 0.05 + 0.90 * (frame_idx / frames_to_process)
-                self.reporter.report(
-                    "EXTRACT",
-                    progress,
-                    f"Frame {frame_idx}/{frames_to_process} tracked",
+                options = PoseLandmarkerOptions(
+                    base_options=BaseOptions(model_asset_path=str(model_path)),
+                    running_mode=RunningMode.VIDEO,
+                    num_poses=1,
+                    min_pose_detection_confidence=0.35,
+                    min_tracking_confidence=0.35,
                 )
+                landmarker = PoseLandmarker.create_from_options(options)
+            except Exception:
+                landmarker = None
 
-        cap.release()
+        frame_idx = 0
+        last_valid_joints: Optional[Dict[str, np.ndarray]] = None
+
+        try:
+            while cap.isOpened() and frame_idx < frames_to_process:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                curr_time = frame_idx / fps
+                timestamps.append(curr_time)
+                ts_ms = int(curr_time * 1000)
+
+                frame_joints = None
+                if landmarker is not None:
+                    try:
+                        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                        res = landmarker.detect_for_video(mp_img, ts_ms)
+                        if res.pose_world_landmarks and len(res.pose_world_landmarks) > 0:
+                            frame_joints = self._map_mediapipe_landmarks(res.pose_world_landmarks[0])
+                            last_valid_joints = frame_joints
+                    except Exception:
+                        pass
+
+                # If no landmark detected on this specific frame, interpolate from last known frame
+                if frame_joints is None and last_valid_joints is not None:
+                    frame_joints = last_valid_joints
+                elif frame_joints is None:
+                    frame_joints = self._estimate_frame_3d_pose(frame)
+                    last_valid_joints = frame_joints
+
+                for j_name in CANONICAL_JOINTS:
+                    all_frames_joints[j_name].append(frame_joints[j_name])
+
+                root_trans_list.append(frame_joints["hips"])
+                frame_idx += 1
+
+                if frame_idx % 15 == 0 or frame_idx == frames_to_process:
+                    progress = 0.05 + 0.90 * (frame_idx / frames_to_process)
+                    self.reporter.report(
+                        "EXTRACT",
+                        progress,
+                        f"Frame {frame_idx}/{frames_to_process} tracked",
+                    )
+        finally:
+            cap.release()
+            if landmarker is not None:
+                try:
+                    landmarker.close()
+                except Exception:
+                    pass
 
         # Stack into numpy arrays (F, 3)
         final_joint_positions = {
@@ -215,24 +311,25 @@ class MotionExtractor:
     def _estimate_frame_3d_pose(self, image_bgr: np.ndarray) -> Dict[str, np.ndarray]:
         """Estimate 3D joint positions for a single frame.
         
-        Uses MediaPipe Pose if available, or a robust geometric computer-vision
+        Uses legacy MediaPipe Pose if available, or a robust geometric computer-vision
         fallback to ensure the engine always runs out of the box on CPU.
         """
         try:
             import cv2
             import mediapipe as mp  # type: ignore
 
-            mp_pose = mp.solutions.pose
-            with mp_pose.Pose(
-                static_image_mode=False,
-                model_complexity=1,
-                enable_segmentation=False,
-                min_detection_confidence=0.5,
-            ) as pose:
-                img_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-                results = pose.process(img_rgb)
-                if results.pose_world_landmarks:
-                    return self._map_mediapipe_landmarks(results.pose_world_landmarks.landmark)
+            if hasattr(mp, "solutions") and hasattr(mp.solutions, "pose"):
+                mp_pose = mp.solutions.pose
+                with mp_pose.Pose(
+                    static_image_mode=False,
+                    model_complexity=1,
+                    enable_segmentation=False,
+                    min_detection_confidence=0.5,
+                ) as pose:
+                    img_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+                    results = pose.process(img_rgb)
+                    if results.pose_world_landmarks:
+                        return self._map_mediapipe_landmarks(results.pose_world_landmarks.landmark)
         except Exception:
             pass
 

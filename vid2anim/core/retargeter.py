@@ -27,15 +27,15 @@ LIMB_VECTORS: Dict[str, Tuple[str, str, np.ndarray]] = {
     "neck": ("chest", "neck", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
     "head": ("neck", "head", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
     "left_shoulder": ("chest", "left_shoulder", np.array([1.0, 0.0, 0.0], dtype=np.float32)),
-    "left_arm": ("left_shoulder", "left_forearm", np.array([1.0, 0.0, 0.0], dtype=np.float32)),
-    "left_forearm": ("left_arm", "left_hand", np.array([1.0, 0.0, 0.0], dtype=np.float32)),
+    "left_arm": ("left_arm", "left_forearm", np.array([1.0, 0.0, 0.0], dtype=np.float32)),
+    "left_forearm": ("left_forearm", "left_hand", np.array([1.0, 0.0, 0.0], dtype=np.float32)),
     "right_shoulder": ("chest", "right_shoulder", np.array([-1.0, 0.0, 0.0], dtype=np.float32)),
-    "right_arm": ("right_shoulder", "right_forearm", np.array([-1.0, 0.0, 0.0], dtype=np.float32)),
-    "right_forearm": ("right_arm", "right_hand", np.array([-1.0, 0.0, 0.0], dtype=np.float32)),
-    "left_upleg": ("hips", "left_leg", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
-    "left_leg": ("left_upleg", "left_foot", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
-    "right_upleg": ("hips", "right_leg", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
-    "right_leg": ("right_upleg", "right_foot", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
+    "right_arm": ("right_arm", "right_forearm", np.array([-1.0, 0.0, 0.0], dtype=np.float32)),
+    "right_forearm": ("right_forearm", "right_hand", np.array([-1.0, 0.0, 0.0], dtype=np.float32)),
+    "left_upleg": ("left_upleg", "left_leg", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
+    "left_leg": ("left_leg", "left_foot", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
+    "right_upleg": ("right_upleg", "right_leg", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
+    "right_leg": ("right_leg", "right_foot", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
 }
 
 
