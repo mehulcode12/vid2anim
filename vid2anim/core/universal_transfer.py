@@ -289,17 +289,21 @@ class UniversalTransferSolver:
                         self.share_bones[idx] = (p_idx, weight, p_canon)
 
         # Discover finger bones for procedural relaxed posing & dynamic flexion
+        import re
         self.finger_bones: List[Tuple[int, str, int, bool]] = []
         for idx, node in enumerate(self.nodes):
             name = node.get("name", "")
             if name in mapped_target_names or "scalecompensation" in name.lower() or "ctrl" in name.lower():
                 continue
             name_l = name.lower()
-            if any(k in name_l for k in ["thumb", "index", "mid", "middle", "ring", "pinky", "little", "rittre", "finger"]) and "toe" not in name_l:
+            if any(k in name_l for k in ["thumb", "index", "mid", "middle", "ring", "pinky", "little", "rittre", "finger"]) and "toe" not in name_l and "share" not in name_l:
                 side = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
-                if any(p in name_l for p in ["3", "03", "distal"]):
+                m_ph = re.search(r'(?:thumb|index|mid|middle|ring|pinky|little|rittre)[^\d]*([123])', name_l)
+                if m_ph:
+                    phalanx = int(m_ph.group(1))
+                elif any(p in name_l for p in ["distal", "03"]):
                     phalanx = 3
-                elif any(p in name_l for p in ["2", "02", "inter", "mid"]):
+                elif any(p in name_l for p in ["inter", "02"]):
                     phalanx = 2
                 else:
                     phalanx = 1
@@ -307,6 +311,7 @@ class UniversalTransferSolver:
                 self.finger_bones.append((idx, side, phalanx, is_thumb))
 
         self.node_translations: Dict[str, np.ndarray] = {}
+        self._build_finger_curl_axes()
 
     def _build_topological_order(self) -> List[int]:
         """Compute topological ordering of glTF nodes so parents strictly precede children."""
@@ -408,6 +413,72 @@ class UniversalTransferSolver:
                 f_skel = CANONICAL_REST_WORLD_FRAME[canonical]
                 c = f_target.T @ f_skel
                 self.basis_change[target_bone] = _orthonormalize_matrix(c)
+
+    def _build_finger_curl_axes(self) -> None:
+        """Precompute anatomically correct local flexion curl axes for every finger bone.
+        
+        Uses PCA knuckle span orientation across the palm for fingers, and opposition to
+        palm center for thumbs, with sign calibrated to decrease distance to the wrist.
+        """
+        self.finger_curl_axes: Dict[int, np.ndarray] = {}
+        for side in ["left", "right"]:
+            w_bone = self.rig_info.bone_mapping.get(f"{side}_hand")
+            w_idx = self.name_to_idx.get(w_bone)
+            p_wrist = self.rest_world_mat[w_idx][:3, 3] if w_idx is not None else np.zeros(3)
+
+            knuckle_indices = [f[0] for f in self.finger_bones if f[1] == side and f[2] == 1 and not f[3]]
+            pts = [self.rest_world_mat[k][:3, 3] for k in knuckle_indices]
+            p_palm_center = np.mean(pts, axis=0) if pts else p_wrist
+
+            if len(knuckle_indices) >= 2:
+                pts_centered = pts - np.mean(pts, axis=0)
+                _, _, vt = np.linalg.svd(pts_centered)
+                v_knuckle_span = vt[0]
+            else:
+                v_knuckle_span = np.array([0.0, 0.0, 1.0])
+
+            for f_idx, s, phalanx, is_thumb in self.finger_bones:
+                if s != side:
+                    continue
+                p_bone = self.rest_world_mat[f_idx][:3, 3]
+                ch_list = self.children_of.get(f_idx, [])
+                if ch_list and float(np.linalg.norm(self.rest_local_trans[ch_list[0]])) > 1e-4:
+                    d_aim = normalize(self.rest_local_trans[ch_list[0]])
+                    b_len = float(np.linalg.norm(self.rest_local_trans[ch_list[0]]))
+                else:
+                    d_aim = np.array([1.0, 0.0, 0.0]) if abs(self.rest_local_mat[f_idx][0, 3]) > abs(self.rest_local_mat[f_idx][1, 3]) else np.array([0.0, 1.0, 0.0])
+                    b_len = 1.0
+                w_rot = _orthonormalize_matrix(self.rest_world_mat[f_idx][:3, :3])
+
+                if not is_thumb:
+                    axis_k = w_rot.T @ v_knuckle_span
+                    axis_curl = normalize(axis_k - float(np.dot(axis_k, d_aim)) * d_aim)
+                    # Calibrate curl sign so finger curls towards wrist
+                    rad = np.radians(35.0)
+                    c, s_val = np.cos(rad), np.sin(rad)
+                    u = axis_curl
+                    r_pos = np.eye(3) * c + (1 - c) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
+                    r_neg = np.eye(3) * c + (1 - c) * np.outer(u, u) - np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
+                    tip_pos = p_bone + w_rot @ (r_pos @ d_aim * b_len)
+                    tip_neg = p_bone + w_rot @ (r_neg @ d_aim * b_len)
+                    if np.linalg.norm(tip_pos - p_wrist) > np.linalg.norm(tip_neg - p_wrist):
+                        axis_curl = -axis_curl
+                else:
+                    v_to_palm = normalize(w_rot.T @ (p_palm_center - p_bone))
+                    axis_curl = normalize(np.cross(d_aim, v_to_palm))
+                    if float(np.linalg.norm(axis_curl)) < 1e-3:
+                        axis_curl = np.array([0.0, 0.0, 1.0])
+                    rad = np.radians(35.0)
+                    c, s_val = np.cos(rad), np.sin(rad)
+                    u = axis_curl
+                    r_pos = np.eye(3) * c + (1 - c) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
+                    r_neg = np.eye(3) * c + (1 - c) * np.outer(u, u) - np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
+                    tip_pos = p_bone + w_rot @ (r_pos @ d_aim * b_len)
+                    tip_neg = p_bone + w_rot @ (r_neg @ d_aim * b_len)
+                    if np.linalg.norm(tip_pos - p_palm_center) > np.linalg.norm(tip_neg - p_palm_center):
+                        axis_curl = -axis_curl
+
+                self.finger_curl_axes[f_idx] = axis_curl
 
     def transfer_motion(
         self,
@@ -736,38 +807,40 @@ class UniversalTransferSolver:
                 prev_quat[s_name] = q_clean
                 bone_rotations[s_name][f] = q_clean
 
-            # Procedural relaxed hand posing and dynamic flexion
+            # Procedural finger posing and dynamic closed fist flexion
             for f_idx, side, phalanx, is_thumb in self.finger_bones:
                 w_key = f"{side}_hand"
+                fa_key = f"{side}_forearm"
                 i_key = f"{side}_fingers"
+                p_key = f"{side}_pinky"
+                t_key = f"{side}_thumb"
+
                 if w_key in joint_pos and i_key in joint_pos:
-                    d_hand = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f]))
-                    curl_dyn = float(np.clip((0.17 - d_hand) / 0.09, 0.0, 1.0))
+                    d_fa = float(np.linalg.norm(joint_pos[w_key][f] - joint_pos[fa_key][f])) if fa_key in joint_pos else 0.22
+                    d_fa = max(d_fa, 0.10)
+                    r_idx = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f])) / d_fa
+                    r_pky = float(np.linalg.norm(joint_pos[p_key][f] - joint_pos[w_key][f])) / d_fa if p_key in joint_pos else r_idx
+                    r_th = float(np.linalg.norm(joint_pos[t_key][f] - joint_pos[w_key][f])) / d_fa if t_key in joint_pos else r_idx
+
+                    # Weighted fist closure indicator: pinky & thumb tuck in tightly into palm
+                    ratio = 0.50 * r_pky + 0.30 * r_th + 0.20 * r_idx
+                    # Closed fist is <= 0.38, open hand is >= 0.68
+                    curl_dyn = float(np.clip((0.68 - ratio) / 0.30, 0.0, 1.0))
                 else:
                     curl_dyn = 0.0
 
                 if is_thumb:
-                    deg = 12.0 * (0.35 + 0.85 * curl_dyn)
+                    deg = 8.0 + 52.0 * curl_dyn
                 else:
-                    base_deg = {1: 15.0, 2: 25.0, 3: 15.0}.get(phalanx, 15.0)
-                    deg = base_deg * (0.35 + 0.85 * curl_dyn)
+                    if phalanx == 1:
+                        deg = 8.0 + 58.0 * curl_dyn
+                    elif phalanx == 2:
+                        deg = 10.0 + 72.0 * curl_dyn
+                    else:
+                        deg = 8.0 + 50.0 * curl_dyn
                 rad = float(np.radians(deg))
 
-                h_canon = f"{side}_hand"
-                h_name = self.rig_info.bone_mapping.get(h_canon)
-                h_idx = self.name_to_idx.get(h_name) if h_name else None
-                m_hand_w = curr_world_rot.get(h_idx, np.eye(3)) if h_idx is not None else np.eye(3)
-                v_lat_w = m_hand_w[:, 0]
-
-                r_f_rest_w = _orthonormalize_matrix(self.rest_world_mat[f_idx][:3, :3])
-                axis_curl = r_f_rest_w.T @ v_lat_w
-
-                ch_list = self.children_of.get(f_idx, [])
-                if ch_list and float(np.linalg.norm(self.rest_local_trans[ch_list[0]])) > 1e-4:
-                    d_aim = normalize(self.rest_local_trans[ch_list[0]])
-                    axis_curl = axis_curl - float(np.dot(axis_curl, d_aim)) * d_aim
-                axis_curl = normalize(axis_curl, np.array([0.0, 0.0, 1.0]))
-
+                axis_curl = self.finger_curl_axes.get(f_idx, np.array([0.0, 0.0, 1.0]))
                 c_a, s_a = np.cos(rad), np.sin(rad)
                 u = axis_curl
                 r_curl = np.eye(3) * c_a + (1.0 - c_a) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_a

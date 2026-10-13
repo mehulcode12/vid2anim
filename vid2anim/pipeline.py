@@ -55,9 +55,9 @@ class PipelineResult:
 class Vid2AnimPipeline:
     """Production orchestrator executing end-to-end video-to-character animation."""
 
-    def __init__(self, config: PipelineConfig) -> None:
+    def __init__(self, config: PipelineConfig, reporter: Optional[ProgressReporter] = None) -> None:
         self.config = config
-        self.reporter = ProgressReporter(jsonl_path=config.progress_jsonl)
+        self.reporter = reporter or ProgressReporter(jsonl_path=config.progress_jsonl)
 
     def execute(self) -> PipelineResult:
         start_time = time.perf_counter()

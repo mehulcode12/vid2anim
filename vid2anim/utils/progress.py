@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 
 class ProgressReporter:
-    """Emits progress events to terminal and an optional JSON Lines file."""
+    """Emits progress events to terminal, an optional callback, and an optional JSON Lines file."""
 
-    def __init__(self, jsonl_path: Optional[str | Path] = None, quiet: bool = False) -> None:
+    def __init__(
+        self,
+        jsonl_path: Optional[str | Path] = None,
+        quiet: bool = False,
+        on_report: Optional[Callable[[str, float, str], None]] = None,
+    ) -> None:
         self.jsonl_path = Path(jsonl_path) if jsonl_path else None
         self.quiet = quiet
+        self.on_report = on_report
         if self.jsonl_path:
             self.jsonl_path.parent.mkdir(parents=True, exist_ok=True)
             # Clear or initialize the file
@@ -29,6 +35,12 @@ class ProgressReporter:
         """Record a milestone: progress is 0.0 to 1.0."""
         progress_clamped = max(0.0, min(1.0, progress))
         pct = int(progress_clamped * 100)
+
+        if self.on_report:
+            try:
+                self.on_report(step, progress_clamped, message)
+            except Exception:
+                pass
 
         if not self.quiet:
             bar_len = 30

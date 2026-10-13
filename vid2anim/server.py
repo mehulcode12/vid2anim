@@ -21,6 +21,15 @@ from typing import Any, Dict
 from .core.rig_detector import inspect_model
 from .pipeline import PipelineConfig, Vid2AnimPipeline
 from .utils.diagnostics import get_system_diagnostics
+from .utils.progress import ProgressReporter
+
+
+PIPELINE_PROGRESS: Dict[str, Any] = {
+    "active": False,
+    "percent": 0,
+    "step": "Idle",
+    "message": "Ready",
+}
 
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -1157,34 +1166,48 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
       btn.disabled = true;
       statusCard.style.display = 'block';
-      statusTitle.innerText = 'Processing Motion';
-      statusText.innerText = 'Extracting 3D human pose landmarks...';
-      statusPercent.innerText = '25%';
-      progressBar.style.width = '25%';
+      statusTitle.innerText = 'Initializing Pipeline';
+      statusText.innerText = 'Preparing assets and initializing ML engine...';
+      statusPercent.innerText = '0%';
+      progressBar.style.width = '0%';
 
       const formData = new FormData();
       formData.append('media', selectedMedia);
       formData.append('model', selectedModel);
       formData.append('device', document.getElementById('deviceSelect').value);
 
-      try {
-        statusPercent.innerText = '55%';
-        progressBar.style.width = '55%';
-        statusText.innerText = 'Solving hierarchical kinematics & retargeting bones...';
+      // Real-time progress poller
+      const progressTimer = setInterval(async () => {
+        try {
+          const res = await fetch('/api/progress');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.active && data.percent > 0) {
+              progressBar.style.width = data.percent + '%';
+              statusPercent.innerText = data.percent + '%';
+              statusTitle.innerText = data.step || 'Processing';
+              statusText.innerText = data.message || 'Extracting motion...';
+            }
+          }
+        } catch (e) {}
+      }, 200);
 
+      try {
         const response = await fetch('/api/animate', {
           method: 'POST',
           body: formData,
         });
+
+        clearInterval(progressTimer);
 
         if (!response.ok) {
           const err = await response.json();
           throw new Error(err.error || 'Animation pipeline failed');
         }
 
-        statusPercent.innerText = '90%';
-        progressBar.style.width = '90%';
-        statusText.innerText = 'Exporting animated GLB binary...';
+        statusPercent.innerText = '95%';
+        progressBar.style.width = '95%';
+        statusText.innerText = 'Packing and loading animated character...';
 
         const boneCountHeader = response.headers.get('X-Animated-Bones');
         if (boneCountHeader) {
@@ -1202,11 +1225,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         statusText.innerText = `Synced side-by-side playback ready!${boneNotice}`;
         document.getElementById('downloadBtn').style.display = 'flex';
       } catch (err) {
+        clearInterval(progressTimer);
         statusTitle.innerText = 'Pipeline Error';
         statusText.innerText = err.message;
         statusPercent.innerText = '0%';
         progressBar.style.width = '0%';
       } finally {
+        clearInterval(progressTimer);
         btn.disabled = false;
       }
     }
@@ -1250,6 +1275,13 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok", "service": "vid2anim"}).encode("utf-8"))
+
+        elif parsed_path.path == "/api/progress":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(json.dumps(PIPELINE_PROGRESS).encode("utf-8"))
 
         else:
             self.send_response(404)
@@ -1315,6 +1347,28 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             model_info = fields["model"]
             device_str = fields.get("device", "auto")
 
+            def on_progress(step: str, progress: float, message: str) -> None:
+                if step == "EXTRACT":
+                    pct = 10 + int(progress * 55)
+                elif step == "RETARGET":
+                    pct = 70 + int(progress * 15)
+                elif step == "EXPORT":
+                    pct = 85 + int(progress * 10)
+                elif step == "PIPELINE":
+                    pct = int(progress * 100)
+                else:
+                    pct = int(progress * 100)
+                pct = max(1, min(98, pct))
+                PIPELINE_PROGRESS["active"] = True
+                PIPELINE_PROGRESS["percent"] = max(PIPELINE_PROGRESS.get("percent", 0), pct)
+                PIPELINE_PROGRESS["step"] = step
+                PIPELINE_PROGRESS["message"] = message
+
+            PIPELINE_PROGRESS["active"] = True
+            PIPELINE_PROGRESS["percent"] = 5
+            PIPELINE_PROGRESS["step"] = "EXTRACT"
+            PIPELINE_PROGRESS["message"] = "Initializing tracking pipeline..."
+
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dir = Path(tmpdir)
                 media_path = tmp_dir / (media_info.get("filename") or "input_media.mp4")
@@ -1334,10 +1388,15 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                     max_duration_sec=30.0,
                     smooth=True,
                 )
-                pipeline = Vid2AnimPipeline(config)
+                reporter = ProgressReporter(on_report=on_progress)
+                pipeline = Vid2AnimPipeline(config, reporter=reporter)
                 result = pipeline.execute()
 
                 if not result.success:
+                    PIPELINE_PROGRESS["active"] = False
+                    PIPELINE_PROGRESS["percent"] = 0
+                    PIPELINE_PROGRESS["step"] = "Error"
+                    PIPELINE_PROGRESS["message"] = result.error_message or "Execution failed"
                     self.send_response(500)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -1346,6 +1405,11 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
 
                 # Send back the generated GLB binary
                 glb_data = output_glb.read_bytes()
+                PIPELINE_PROGRESS["active"] = False
+                PIPELINE_PROGRESS["percent"] = 100
+                PIPELINE_PROGRESS["step"] = "Complete"
+                PIPELINE_PROGRESS["message"] = f"Complete: {result.mapped_bones_count} bones animated."
+
                 self.send_response(200)
                 self.send_header("Content-Type", "model/gltf-binary")
                 self.send_header("Content-Length", str(len(glb_data)))
@@ -1355,6 +1419,10 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(glb_data)
 
         except Exception as e:
+            PIPELINE_PROGRESS["active"] = False
+            PIPELINE_PROGRESS["percent"] = 0
+            PIPELINE_PROGRESS["step"] = "Error"
+            PIPELINE_PROGRESS["message"] = str(e)
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
             self.end_headers()

@@ -50,3 +50,14 @@ def test_server_health_check(running_server):
     assert req.status == 200
     data = json.loads(req.read().decode("utf-8"))
     assert data["status"] == "ok"
+
+
+def test_server_progress_endpoint(running_server):
+    req = urllib.request.urlopen(f"{running_server}/api/progress")
+    assert req.status == 200
+    data = json.loads(req.read().decode("utf-8"))
+    assert "active" in data
+    assert "percent" in data
+    assert "step" in data
+    assert "message" in data
+
