@@ -280,30 +280,30 @@ class UniversalBoneMatcher:
         "left_forearm", "right_forearm",
         "left_arm", "right_arm",
         "left_foot", "right_foot",
-        "left_upleg", "right_upleg",
         "left_leg", "right_leg",
+        "left_upleg", "right_upleg",
         "head", "neck", "chest", "spine", "hips",
     ]
 
     CANONICAL_DEFS: Dict[str, Dict[str, Any]] = {
         "hips": {
             "side": "center",
-            "high_keys": {"pelvis", "hip", "hips", "下半身", "センター", "腰"},
-            "keys": {"waist", "root", "c_root"},
-            "low_keys": {"rootjoint"},
-            "bad": {"thigh", "leg", "toe", "foot", "arm", "spine", "head"},
+            "high_keys": {"pelvis", "hip", "hips", "root", "下半身", "センター", "腰"},
+            "keys": {"c_root"},
+            "low_keys": {"rootjoint", "main"},
+            "bad": {"thigh", "leg", "toe", "foot", "arm", "spine", "head", "waist"},
         },
         "spine": {
             "side": "center",
-            "high_keys": {"spine1", "spine01", "spine", "torso", "上半身"},
+            "high_keys": {"spine1", "spine01", "spine", "torso", "waist", "上半身"},
             "keys": {"abdomen", "lumbar"},
-            "bad": {"chest", "spine2", "spine02", "spine3", "spine03", "neck", "head", "arm", "leg", "上半身2"},
+            "bad": {"chest", "neck", "head", "arm", "leg", "上半身2"},
         },
         "chest": {
             "side": "center",
-            "high_keys": {"chest", "spine2", "spine02", "spine3", "spine03", "upperchest", "thorax", "上半身2"},
-            "keys": {"pectoral", "upperbody"},
-            "combo": [("spine", "02"), ("spine", "2"), ("spine", "03"), ("spine", "3")],
+            "high_keys": {"chest", "upperchest", "thorax", "上半身2"},
+            "keys": {"pectoral", "upperbody", "spine2", "spine02", "spine3", "spine03"},
+            "combo": [],
             "bad": {"neck", "head", "hip", "pelvis"},
         },
         "neck": {
@@ -320,21 +320,21 @@ class UniversalBoneMatcher:
         },
         "left_shoulder": {
             "side": "left",
-            "high_keys": {"clavicle", "shoulder", "collar", "shldr", "肩"},
-            "keys": set(),
+            "high_keys": {"clavicle", "collar", "clav", "crav", "shldr", "肩"},
+            "keys": {"shoulder"},
             "bad": {"arm", "forearm", "hand"},
         },
         "left_arm": {
             "side": "left",
-            "high_keys": {"upperarm", "腕"},
-            "keys": {"arm", "bicep", "brachium", "shldr"},
+            "high_keys": {"upperarm", "arm", "腕"},
+            "keys": {"bicep", "brachium", "shldr", "shoulder", "shourder"},
             "combo": [("upper", "arm"), ("up", "arm")],
-            "bad": {"forearm", "lowerarm", "hand", "mid", "twist", "ひじ", "fore", "low", "lower", "elbow"},
+            "bad": {"forearm", "lowerarm", "hand", "mid", "twist", "ひじ", "fore", "low", "lower", "elbow", "erbow", "clav", "crav", "collar", "clavicle"},
         },
         "left_forearm": {
             "side": "left",
             "high_keys": {"forearm", "lowerarm", "ひじ"},
-            "keys": {"elbow", "radius", "ulna"},
+            "keys": {"elbow", "erbow", "radius", "ulna"},
             "combo": [("lower", "arm"), ("fore", "arm"), ("low", "arm")],
             "bad": {"upper", "upperarm", "hand", "twist", "up"},
         },
@@ -346,21 +346,21 @@ class UniversalBoneMatcher:
         },
         "right_shoulder": {
             "side": "right",
-            "high_keys": {"clavicle", "shoulder", "collar", "shldr", "肩"},
-            "keys": set(),
+            "high_keys": {"clavicle", "collar", "clav", "crav", "shldr", "肩"},
+            "keys": {"shoulder"},
             "bad": {"arm", "forearm", "hand"},
         },
         "right_arm": {
             "side": "right",
-            "high_keys": {"upperarm", "腕"},
-            "keys": {"arm", "bicep", "brachium", "shldr"},
+            "high_keys": {"upperarm", "arm", "腕"},
+            "keys": {"bicep", "brachium", "shldr", "shoulder", "shourder"},
             "combo": [("upper", "arm"), ("up", "arm")],
-            "bad": {"forearm", "lowerarm", "hand", "mid", "twist", "ひじ", "fore", "low", "lower", "elbow"},
+            "bad": {"forearm", "lowerarm", "hand", "mid", "twist", "ひじ", "fore", "low", "lower", "elbow", "erbow", "clav", "crav", "collar", "clavicle"},
         },
         "right_forearm": {
             "side": "right",
             "high_keys": {"forearm", "lowerarm", "ひじ"},
-            "keys": {"elbow", "radius", "ulna"},
+            "keys": {"elbow", "erbow", "radius", "ulna"},
             "combo": [("lower", "arm"), ("fore", "arm"), ("low", "arm")],
             "bad": {"upper", "upperarm", "hand", "twist", "up"},
         },
@@ -373,7 +373,7 @@ class UniversalBoneMatcher:
         "left_upleg": {
             "side": "left",
             "high_keys": {"thigh", "upperleg", "upleg"},
-            "keys": {"femur"},
+            "keys": {"femur", "hip", "upper"},
             "combo": [("upper", "leg"), ("up", "leg")],
             "bad": {"calf", "shin", "foot", "twist", "ひざ", "lowerleg", "lower", "low"},
         },
@@ -387,13 +387,13 @@ class UniversalBoneMatcher:
         "left_foot": {
             "side": "left",
             "high_keys": {"foot", "足首"},
-            "keys": {"ankle", "heel"},
+            "keys": {"ankle", "ankre", "heel"},
             "bad": {"toe", "thigh", "calf", "shin", "leg"},
         },
         "right_upleg": {
             "side": "right",
             "high_keys": {"thigh", "upperleg", "upleg"},
-            "keys": {"femur"},
+            "keys": {"femur", "hip", "upper"},
             "combo": [("upper", "leg"), ("up", "leg")],
             "bad": {"calf", "shin", "foot", "twist", "ひざ", "lowerleg", "lower", "low"},
         },
@@ -407,7 +407,7 @@ class UniversalBoneMatcher:
         "right_foot": {
             "side": "right",
             "high_keys": {"foot", "足首"},
-            "keys": {"ankle", "heel"},
+            "keys": {"ankle", "ankre", "heel"},
             "bad": {"toe", "thigh", "calf", "shin", "leg"},
         },
     }
@@ -447,8 +447,33 @@ class UniversalBoneMatcher:
         mapping: Dict[str, str] = {}
         used_bones: Set[str] = set()
 
+        # Check if the rig contains dedicated clavicle bones (clav, crav, collar) per side
+        has_clav_l = any(
+            any(k in cls.tokenize(b) for k in ["clav", "crav", "clavicle", "collar", "鎖骨"])
+            for b in bone_names
+            if cls.get_side(cls.tokenize(b)) == "left"
+        )
+        has_clav_r = any(
+            any(k in cls.tokenize(b) for k in ["clav", "crav", "clavicle", "collar", "鎖骨"])
+            for b in bone_names
+            if cls.get_side(cls.tokenize(b)) == "right"
+        )
+
         for canonical in cls.CANONICAL_ORDER:
-            info = cls.CANONICAL_DEFS[canonical]
+            info = dict(cls.CANONICAL_DEFS[canonical])
+            
+            # If dedicated clavicle bones exist, shoulder bones belong to arm, not collar
+            if canonical == "left_shoulder" and has_clav_l:
+                info["high_keys"] = {"clavicle", "collar", "clav", "crav", "鎖骨"}
+                info["keys"] = set()
+            elif canonical == "right_shoulder" and has_clav_r:
+                info["high_keys"] = {"clavicle", "collar", "clav", "crav", "鎖骨"}
+                info["keys"] = set()
+            elif canonical == "left_arm" and has_clav_l:
+                info["high_keys"] = {"upperarm", "腕", "shoulder", "shldr", "shourder"}
+            elif canonical == "right_arm" and has_clav_r:
+                info["high_keys"] = {"upperarm", "腕", "shoulder", "shldr", "shourder"}
+
             best_bone = None
             best_score = -999.0
             req_side = info["side"]
@@ -464,6 +489,8 @@ class UniversalBoneMatcher:
                 if req_side == "left" and b_side == "right":
                     continue
                 if req_side == "right" and b_side == "left":
+                    continue
+                if req_side == "center" and b_side in ["left", "right"]:
                     continue
 
                 keyword_score = 0.0
