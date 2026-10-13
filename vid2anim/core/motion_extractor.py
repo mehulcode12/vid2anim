@@ -153,6 +153,9 @@ class MotionExtractor:
                             base_options=BaseOptions(model_asset_path=str(model_path)),
                             running_mode=RunningMode.IMAGE,
                             num_poses=1,
+                            min_pose_detection_confidence=0.6,
+                            min_pose_presence_confidence=0.6,
+                            min_tracking_confidence=0.6,
                         )
                         with PoseLandmarker.create_from_options(options) as landmarker:
                             rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -228,8 +231,9 @@ class MotionExtractor:
                     base_options=BaseOptions(model_asset_path=str(model_path)),
                     running_mode=RunningMode.VIDEO,
                     num_poses=1,
-                    min_pose_detection_confidence=0.35,
-                    min_tracking_confidence=0.35,
+                    min_pose_detection_confidence=0.6,
+                    min_pose_presence_confidence=0.6,
+                    min_tracking_confidence=0.6,
                 )
                 landmarker = PoseLandmarker.create_from_options(options)
             except Exception:

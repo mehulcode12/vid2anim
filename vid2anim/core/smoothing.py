@@ -57,20 +57,25 @@ class TemporalMotionSmoother:
         self.rotation_window = max(1, rotation_window)
 
     def smooth_motion_positions(self, motion: MotionSequence) -> MotionSequence:
-        """Smooth 3D joint trajectories using adaptive filtering."""
+        """Smooth 3D joint trajectories using kinematic stabilization and adaptive filtering."""
         num_frames = motion.frame_count
         if num_frames <= 2:
             return motion
 
         dt = 1.0 / motion.fps if motion.fps > 0 else 0.033333
+
+        # 1. Enforce rigid anatomical bone lengths and reject foreshortening depth collapse
+        stabilized_positions = self._stabilize_kinematic_trajectories(motion.joint_positions)
+
+        # 2. Adaptive One-Euro frequency filtering
         smoothed_joints: Dict[str, np.ndarray] = {}
 
-        for j_name, pos_array in motion.joint_positions.items():
+        for j_name, pos_array in stabilized_positions.items():
             smoothed_pos = np.zeros_like(pos_array)
-            # Create a 1D filter per XYZ coordinate
+            # Create a 1D filter per XYZ coordinate (depth Z filter tuned for high stability)
             fx = OneEuroFilter1D(min_cutoff=1.2 / self.position_smoothness, beta=0.03)
             fy = OneEuroFilter1D(min_cutoff=1.2 / self.position_smoothness, beta=0.03)
-            fz = OneEuroFilter1D(min_cutoff=1.2 / self.position_smoothness, beta=0.03)
+            fz = OneEuroFilter1D(min_cutoff=0.8 / self.position_smoothness, beta=0.02)
 
             for f in range(num_frames):
                 smoothed_pos[f, 0] = fx.filter(float(pos_array[f, 0]), dt)
@@ -83,7 +88,7 @@ class TemporalMotionSmoother:
         smoothed_root = np.zeros_like(motion.root_translation)
         rx = OneEuroFilter1D(min_cutoff=0.8, beta=0.05)
         ry = OneEuroFilter1D(min_cutoff=0.8, beta=0.05)
-        rz = OneEuroFilter1D(min_cutoff=0.8, beta=0.05)
+        rz = OneEuroFilter1D(min_cutoff=0.6, beta=0.03)
         for f in range(num_frames):
             smoothed_root[f, 0] = rx.filter(float(motion.root_translation[f, 0]), dt)
             smoothed_root[f, 1] = ry.filter(float(motion.root_translation[f, 1]), dt)
@@ -97,6 +102,61 @@ class TemporalMotionSmoother:
             joint_positions=smoothed_joints,
             root_translation=smoothed_root,
         )
+
+    @staticmethod
+    def _stabilize_kinematic_trajectories(joint_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """Enforce rigid bone lengths and reject foreshortening depth collapse."""
+        limb_chains = [
+            ("left_shoulder", "left_arm"),
+            ("left_arm", "left_forearm"),
+            ("left_forearm", "left_hand"),
+            ("right_shoulder", "right_arm"),
+            ("right_arm", "right_forearm"),
+            ("right_forearm", "right_hand"),
+            ("left_upleg", "left_leg"),
+            ("left_leg", "left_foot"),
+            ("right_upleg", "right_leg"),
+            ("right_leg", "right_foot"),
+        ]
+        res = {k: v.copy() for k, v in joint_dict.items()}
+        num_frames = next(iter(joint_dict.values())).shape[0] if joint_dict else 0
+        if num_frames < 2:
+            return res
+
+        for p_name, c_name in limb_chains:
+            if p_name not in res or c_name not in res:
+                continue
+            p_arr = res[p_name]
+            c_arr = res[c_name]
+            vecs = c_arr - p_arr
+            lengths = np.linalg.norm(vecs, axis=-1)
+            med_len = float(np.median(lengths))
+            if med_len < 1e-4:
+                continue
+
+            prev_dir = vecs[0] / max(float(lengths[0]), 1e-5)
+            for f in range(num_frames):
+                l = float(lengths[f])
+                if l < 0.45 * med_len:
+                    # Foreshortening collapse - use previous valid direction
+                    curr_dir = prev_dir
+                else:
+                    curr_dir = vecs[f] / l
+                    dot = float(np.clip(np.dot(curr_dir, prev_dir), -1.0, 1.0))
+                    angle_deg = float(np.degrees(np.arccos(dot)))
+                    if angle_deg > 35.0:
+                        # Clamp physically impossible single-frame jump (max 35 deg/frame)
+                        alpha = 35.0 / angle_deg
+                        curr_dir = (1.0 - alpha) * prev_dir + alpha * curr_dir
+                        norm = float(np.linalg.norm(curr_dir))
+                        curr_dir = curr_dir / norm if norm > 1e-6 else prev_dir
+
+                prev_dir = curr_dir
+                target_len = float(np.clip(l, med_len * 0.8, med_len * 1.2))
+                res[c_name][f] = p_arr[f] + curr_dir * target_len
+
+        return res
+
 
     def smooth_animation_rotations(self, anim: RetargetedAnimation) -> RetargetedAnimation:
         """Smooth bone rotation quaternions across frames using SLERP windowing."""
