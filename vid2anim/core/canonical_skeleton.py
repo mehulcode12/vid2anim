@@ -24,6 +24,7 @@ from .motion_extractor import MotionSequence
 CANONICAL_JOINTS_ORDER = [
     "hips",
     "spine",
+    "spine1",
     "chest",
     "neck",
     "head",
@@ -38,16 +39,19 @@ CANONICAL_JOINTS_ORDER = [
     "left_upleg",
     "left_leg",
     "left_foot",
+    "left_toe",
     "right_upleg",
     "right_leg",
     "right_foot",
+    "right_toe",
 ]
 
 # Parent hierarchy
 CANONICAL_PARENT: Dict[str, Optional[str]] = {
     "hips": None,
     "spine": "hips",
-    "chest": "spine",
+    "spine1": "spine",
+    "chest": "spine1",
     "neck": "chest",
     "head": "neck",
     "left_shoulder": "chest",
@@ -61,14 +65,17 @@ CANONICAL_PARENT: Dict[str, Optional[str]] = {
     "left_upleg": "hips",
     "left_leg": "left_upleg",
     "left_foot": "left_leg",
+    "left_toe": "left_foot",
     "right_upleg": "hips",
     "right_leg": "right_upleg",
     "right_foot": "right_leg",
+    "right_toe": "right_foot",
 }
 
 # Rest directions of canonical bones in their local reference frame
 CANONICAL_REST_LOCAL_DIR: Dict[str, np.ndarray] = {
     "spine": np.array([0.0, 1.0, 0.0], dtype=np.float64),
+    "spine1": np.array([0.0, 1.0, 0.0], dtype=np.float64),
     "chest": np.array([0.0, 1.0, 0.0], dtype=np.float64),
     "neck": np.array([0.0, 1.0, 0.0], dtype=np.float64),
     "head": np.array([0.0, 1.0, 0.0], dtype=np.float64),
@@ -83,9 +90,11 @@ CANONICAL_REST_LOCAL_DIR: Dict[str, np.ndarray] = {
     "left_upleg": np.array([0.0, -1.0, 0.0], dtype=np.float64),
     "left_leg": np.array([0.0, -1.0, 0.0], dtype=np.float64),
     "left_foot": np.array([0.0, 0.0, 1.0], dtype=np.float64),
+    "left_toe": np.array([0.0, 0.0, 1.0], dtype=np.float64),
     "right_upleg": np.array([0.0, -1.0, 0.0], dtype=np.float64),
     "right_leg": np.array([0.0, -1.0, 0.0], dtype=np.float64),
     "right_foot": np.array([0.0, 0.0, 1.0], dtype=np.float64),
+    "right_toe": np.array([0.0, 0.0, 1.0], dtype=np.float64),
 }
 
 # Canonical rest world orientation frame F_canonical for each bone:
@@ -93,6 +102,7 @@ CANONICAL_REST_LOCAL_DIR: Dict[str, np.ndarray] = {
 CANONICAL_REST_WORLD_FRAME: Dict[str, np.ndarray] = {
     "hips": np.eye(3, dtype=np.float64),
     "spine": np.eye(3, dtype=np.float64),
+    "spine1": np.eye(3, dtype=np.float64),
     "chest": np.eye(3, dtype=np.float64),
     "neck": np.eye(3, dtype=np.float64),
     "head": np.eye(3, dtype=np.float64),
@@ -107,9 +117,11 @@ CANONICAL_REST_WORLD_FRAME: Dict[str, np.ndarray] = {
     "left_upleg": np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]], dtype=np.float64),
     "left_leg": np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]], dtype=np.float64),
     "left_foot": np.eye(3, dtype=np.float64),
+    "left_toe": np.eye(3, dtype=np.float64),
     "right_upleg": np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]], dtype=np.float64),
     "right_leg": np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]], dtype=np.float64),
     "right_foot": np.eye(3, dtype=np.float64),
+    "right_toe": np.eye(3, dtype=np.float64),
 }
 
 
@@ -159,24 +171,32 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["hips"] = r_hips
         r_world["hips"] = r_hips
 
-        # 2. Spine & Chest (Torso Chain)
+        # 2. Spine, Spine1 & Chest (Torso Chain)
         p_spine = get_pos("spine", f)
         p_chest = get_pos("chest", f)
+        p_spine1 = get_pos("spine1", f) if "spine1" in motion.joint_positions else (p_spine + p_chest) * 0.5
 
-        # Spine aims along hips -> spine
-        v_spine = p_chest - p_spine
+        # Spine aims along hips -> spine1
+        v_spine = p_spine1 - p_spine
         d_spine_in_anim = r_world["hips"].T @ normalize(v_spine, np.array([0.0, 1.0, 0.0]))
         r_spine = rotation_aligning(CANONICAL_REST_LOCAL_DIR["spine"], d_spine_in_anim)
         r_anim["spine"] = r_spine
         r_world["spine"] = r_world["hips"] @ r_spine
 
+        # Spine1 aims along spine1 -> chest
+        v_spine1 = p_chest - p_spine1
+        d_spine1_in_anim = r_world["spine"].T @ normalize(v_spine1, np.array([0.0, 1.0, 0.0]))
+        r_spine1 = rotation_aligning(CANONICAL_REST_LOCAL_DIR["spine1"], d_spine1_in_anim)
+        r_anim["spine1"] = r_spine1
+        r_world["spine1"] = r_world["spine"] @ r_spine1
+
         # Chest: Torso chest frame from collar lateral and spine-to-neck up
         p_l_sh = get_pos("left_shoulder", f)
         p_r_sh = get_pos("right_shoulder", f)
         chest_lat = p_l_sh - p_r_sh
-        chest_up = p_neck - p_spine
+        chest_up = p_neck - p_spine1
         r_chest_world = orthonormal_frame(chest_lat, chest_up)
-        r_chest_local = r_world["spine"].T @ r_chest_world
+        r_chest_local = r_world["spine1"].T @ r_chest_world
         r_anim["chest"] = r_chest_local
         r_world["chest"] = r_chest_world
 
@@ -275,13 +295,21 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["left_leg"] = r_l_shin
         r_world["left_leg"] = r_world["left_upleg"] @ r_l_shin
 
-        v_l_foot = p_l_ankle - p_l_knee
-        d_l_foot_in_anim = r_world["left_leg"].T @ normalize(v_l_foot, np.array([0.0, -1.0, 0.0]))
+        p_l_toe = get_pos("left_toe", f) if "left_toe" in motion.joint_positions else p_l_ankle + np.array([0.0, -0.05, 0.15])
+        v_l_foot = p_l_toe - p_l_ankle
+        d_l_foot_in_anim = r_world["left_leg"].T @ normalize(v_l_foot, np.array([0.0, 0.0, 1.0]))
         r_l_foot = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_foot"], d_l_foot_in_anim)
         r_anim["left_foot"] = r_l_foot
         r_world["left_foot"] = r_world["left_leg"] @ r_l_foot
 
-        # 6. Right Leg Chain (hips -> right_upleg -> right_leg -> right_foot)
+        dy_l_toe = float(p_l_ankle[1] - p_l_toe[1])
+        pitch_l = float(np.arcsin(np.clip(dy_l_toe / 0.12, 0.0, 0.70))) if dy_l_toe > 0.02 else 0.0
+        c_l, s_l = np.cos(pitch_l), np.sin(pitch_l)
+        r_toe_l = np.array([[1.0, 0.0, 0.0], [0.0, c_l, -s_l], [0.0, s_l, c_l]], dtype=np.float64)
+        r_anim["left_toe"] = r_toe_l
+        r_world["left_toe"] = r_world["left_foot"] @ r_toe_l
+
+        # 6. Right Leg Chain (hips -> right_upleg -> right_leg -> right_foot -> right_toe)
         p_r_knee = get_pos("right_leg", f)
         p_r_ankle = get_pos("right_foot", f)
 
@@ -299,11 +327,19 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["right_leg"] = r_r_shin
         r_world["right_leg"] = r_world["right_upleg"] @ r_r_shin
 
-        v_r_foot = p_r_ankle - p_r_knee
-        d_r_foot_in_anim = r_world["right_leg"].T @ normalize(v_r_foot, np.array([0.0, -1.0, 0.0]))
+        p_r_toe = get_pos("right_toe", f) if "right_toe" in motion.joint_positions else p_r_ankle + np.array([0.0, -0.05, 0.15])
+        v_r_foot = p_r_toe - p_r_ankle
+        d_r_foot_in_anim = r_world["right_leg"].T @ normalize(v_r_foot, np.array([0.0, 0.0, 1.0]))
         r_r_foot = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_foot"], d_r_foot_in_anim)
         r_anim["right_foot"] = r_r_foot
         r_world["right_foot"] = r_world["right_leg"] @ r_r_foot
+
+        dy_r_toe = float(p_r_ankle[1] - p_r_toe[1])
+        pitch_r = float(np.arcsin(np.clip(dy_r_toe / 0.12, 0.0, 0.70))) if dy_r_toe > 0.02 else 0.0
+        c_r, s_r = np.cos(pitch_r), np.sin(pitch_r)
+        r_toe_r = np.array([[1.0, 0.0, 0.0], [0.0, c_r, -s_r], [0.0, s_r, c_r]], dtype=np.float64)
+        r_anim["right_toe"] = r_toe_r
+        r_world["right_toe"] = r_world["right_foot"] @ r_toe_r
 
         # Commit frame
         r_anim_frames.append(r_anim)

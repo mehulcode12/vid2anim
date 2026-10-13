@@ -28,6 +28,7 @@ class RigType(str, Enum):
 CANONICAL_JOINTS = (
     "hips",
     "spine",
+    "spine1",
     "chest",
     "neck",
     "head",
@@ -42,15 +43,18 @@ CANONICAL_JOINTS = (
     "left_upleg",
     "left_leg",
     "left_foot",
+    "left_toe",
     "right_upleg",
     "right_leg",
     "right_foot",
+    "right_toe",
 )
 
 # Known aliases across 3D ecosystems (Mixamo, VRM, Rigify, Unreal, Reallusion Character Creator, Daz3D)
 JOINT_ALIASES: Dict[str, List[str]] = {
     "hips": ["mixamorig:hips", "mixamorig_hips", "hips", "pelvis", "hip", "c_hip", "chip", "b_hips", "cc_base_pelvis", "cc_base_hip", "root"],
-    "spine": ["mixamorig:spine", "mixamorig_spine", "spine", "spine01", "spine_01", "spine1", "def-spine", "b_spine", "cc_base_spine01"],
+    "spine": ["mixamorig:spine", "mixamorig_spine", "spine", "spine01", "spine_01", "spine1", "def-spine", "b_spine", "cc_base_waist", "cc_base_spine01"],
+    "spine1": ["mixamorig:spine1", "mixamorig_spine1", "spine1", "spine_01", "spine01", "b_spine1", "cc_base_spine01"],
     "chest": ["mixamorig:spine2", "mixamorig:spine1", "chest", "upperchest", "spine02", "spine_02", "spine_03", "spine2", "def-chest", "b_chest", "cc_base_spine02"],
     "neck": ["mixamorig:neck", "mixamorig_neck", "neck", "neck_01", "neck01", "def-neck", "b_neck", "cc_base_neck", "cc_base_necktwist01"],
     "head": ["mixamorig:head", "mixamorig_head", "head", "head_01", "def-head", "b_head", "cc_base_head"],
@@ -65,9 +69,11 @@ JOINT_ALIASES: Dict[str, List[str]] = {
     "left_upleg": ["mixamorig:leftupleg", "leftupperleg", "thigh_l", "thigh.l", "def-thigh.l", "b_l_upleg", "l_thigh", "l_upperleg", "cc_base_l_thigh"],
     "left_leg": ["mixamorig:leftleg", "leftlowerleg", "calf_l", "shin.l", "def-shin.l", "b_l_leg", "l_calf", "l_lowerleg", "l_leg", "cc_base_l_calf"],
     "left_foot": ["mixamorig:leftfoot", "leftfoot", "foot_l", "foot.l", "def-foot.l", "b_l_foot", "l_foot", "cc_base_l_foot"],
+    "left_toe": ["mixamorig:lefttoebase", "mixamorig_lefttoebase", "lefttoebase", "toe_l", "toebase_l", "toe.l", "b_l_toe", "cc_base_l_toebase", "jnt_toe_l", "toe_01_l", "lefttoe", "l_toe", "ball_l"],
     "right_upleg": ["mixamorig:rightupleg", "rightupperleg", "thigh_r", "thigh.r", "def-thigh.r", "b_r_upleg", "r_thigh", "r_upperleg", "cc_base_r_thigh"],
     "right_leg": ["mixamorig:rightleg", "rightlowerleg", "calf_r", "shin.r", "def-shin.r", "b_r_leg", "r_calf", "r_lowerleg", "r_leg", "cc_base_r_calf"],
     "right_foot": ["mixamorig:rightfoot", "rightfoot", "foot_r", "foot.r", "def-foot.r", "b_r_foot", "r_foot", "cc_base_r_foot"],
+    "right_toe": ["mixamorig:righttoebase", "mixamorig_righttoebase", "righttoebase", "toe_r", "toebase_r", "toe.r", "b_r_toe", "cc_base_r_toebase", "jnt_toe_r", "toe_01_r", "righttoe", "r_toe", "ball_r"],
 }
 
 
@@ -275,6 +281,7 @@ class UniversalBoneMatcher:
     """
 
     CANONICAL_ORDER: List[str] = [
+        "left_toe", "right_toe",
         "left_shoulder", "right_shoulder",
         "left_hand", "right_hand",
         "left_forearm", "right_forearm",
@@ -282,7 +289,7 @@ class UniversalBoneMatcher:
         "left_foot", "right_foot",
         "left_leg", "right_leg",
         "left_upleg", "right_upleg",
-        "head", "neck", "chest", "spine", "hips",
+        "head", "neck", "chest", "spine1", "spine", "hips",
     ]
 
     CANONICAL_DEFS: Dict[str, Dict[str, Any]] = {
@@ -297,7 +304,13 @@ class UniversalBoneMatcher:
             "side": "center",
             "high_keys": {"spine1", "spine01", "spine", "torso", "waist", "上半身"},
             "keys": {"abdomen", "lumbar"},
-            "bad": {"chest", "neck", "head", "arm", "leg", "上半身2"},
+            "bad": {"chest", "neck", "head", "arm", "leg", "上半身2", "spine2", "spine02"},
+        },
+        "spine1": {
+            "side": "center",
+            "high_keys": {"spine1", "spine01", "b_spine1"},
+            "keys": {"spine_01"},
+            "bad": {"chest", "upperchest", "neck", "head", "arm", "leg", "waist", "pelvis", "hips"},
         },
         "chest": {
             "side": "center",
@@ -409,6 +422,18 @@ class UniversalBoneMatcher:
             "high_keys": {"foot", "足首"},
             "keys": {"ankle", "ankre", "heel"},
             "bad": {"toe", "thigh", "calf", "shin", "leg"},
+        },
+        "left_toe": {
+            "side": "left",
+            "high_keys": {"toebase", "toe", "つま先", "ball"},
+            "keys": {"toes", "foot_toe", "toebase1"},
+            "bad": {"toetip", "tip", "sharebone", "share", "pinky", "ring", "mid", "middle", "index", "big", "thigh", "calf", "shin", "leg", "foot", "end"},
+        },
+        "right_toe": {
+            "side": "right",
+            "high_keys": {"toebase", "toe", "つま先", "ball"},
+            "keys": {"toes", "foot_toe", "toebase1"},
+            "bad": {"toetip", "tip", "sharebone", "share", "pinky", "ring", "mid", "middle", "index", "big", "thigh", "calf", "shin", "leg", "foot", "end"},
         },
     }
 

@@ -215,8 +215,8 @@ class MotionExtractor:
         )
 
         from .rig_detector import CANONICAL_JOINTS
-        AUXILIARY_LANDMARKS = ("left_toe", "right_toe", "left_fingers", "right_fingers")
-        tracked_joints = list(CANONICAL_JOINTS) + list(AUXILIARY_LANDMARKS)
+        AUXILIARY_LANDMARKS = ("left_fingers", "right_fingers", "left_thumb", "right_thumb", "left_pinky", "right_pinky")
+        tracked_joints = list(CANONICAL_JOINTS) + [j for j in AUXILIARY_LANDMARKS if j not in CANONICAL_JOINTS]
         all_frames_joints: Dict[str, List[np.ndarray]] = {j: [] for j in tracked_joints}
         root_trans_list: List[np.ndarray] = []
         timestamps: List[float] = []
@@ -358,7 +358,8 @@ class MotionExtractor:
         l_shoulder, r_shoulder = pt(11), pt(12)
         shoulders_mid = (l_shoulder + r_shoulder) * 0.5
 
-        chest = hips + (shoulders_mid - hips) * 0.7
+        chest = hips + (shoulders_mid - hips) * 0.70
+        spine1 = hips + (shoulders_mid - hips) * 0.525
         spine = hips + (shoulders_mid - hips) * 0.35
         neck = shoulders_mid
         head = pt(0)  # nose
@@ -366,6 +367,7 @@ class MotionExtractor:
         return {
             "hips": hips,
             "spine": spine,
+            "spine1": spine1,
             "chest": chest,
             "neck": neck,
             "head": head,
@@ -379,6 +381,10 @@ class MotionExtractor:
             "right_hand": pt(16),
             "left_fingers": pt(19),
             "right_fingers": pt(20),
+            "left_thumb": pt(21),
+            "right_thumb": pt(22),
+            "left_pinky": pt(17),
+            "right_pinky": pt(18),
             "left_upleg": l_hip,
             "left_leg": pt(25),
             "left_foot": pt(27),
@@ -394,6 +400,7 @@ class MotionExtractor:
         return {
             "hips": np.array([0.0, 1.0, 0.0], dtype=np.float32),
             "spine": np.array([0.0, 1.15, 0.0], dtype=np.float32),
+            "spine1": np.array([0.0, 1.25, 0.0], dtype=np.float32),
             "chest": np.array([0.0, 1.35, 0.0], dtype=np.float32),
             "neck": np.array([0.0, 1.50, 0.0], dtype=np.float32),
             "head": np.array([0.0, 1.70, 0.0], dtype=np.float32),
@@ -402,11 +409,15 @@ class MotionExtractor:
             "left_forearm": np.array([0.60, 1.45, 0.0], dtype=np.float32),
             "left_hand": np.array([0.80, 1.45, 0.0], dtype=np.float32),
             "left_fingers": np.array([0.90, 1.45, 0.0], dtype=np.float32),
+            "left_thumb": np.array([0.85, 1.47, 0.02], dtype=np.float32),
+            "left_pinky": np.array([0.89, 1.43, -0.01], dtype=np.float32),
             "right_shoulder": np.array([-0.15, 1.45, 0.0], dtype=np.float32),
             "right_arm": np.array([-0.35, 1.45, 0.0], dtype=np.float32),
             "right_forearm": np.array([-0.60, 1.45, 0.0], dtype=np.float32),
             "right_hand": np.array([-0.80, 1.45, 0.0], dtype=np.float32),
             "right_fingers": np.array([-0.90, 1.45, 0.0], dtype=np.float32),
+            "right_thumb": np.array([-0.85, 1.47, 0.02], dtype=np.float32),
+            "right_pinky": np.array([-0.89, 1.43, -0.01], dtype=np.float32),
             "left_upleg": np.array([0.15, 0.95, 0.0], dtype=np.float32),
             "left_leg": np.array([0.15, 0.50, 0.0], dtype=np.float32),
             "left_foot": np.array([0.15, 0.05, 0.0], dtype=np.float32),

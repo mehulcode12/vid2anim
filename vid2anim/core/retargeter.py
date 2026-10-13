@@ -27,6 +27,7 @@ from .universal_transfer import UniversalTransferSolver
 # Legacy joint pairs kept for fallback compatibility
 LIMB_VECTORS: Dict[str, Tuple[str, str, np.ndarray]] = {
     "spine": ("hips", "spine", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
+    "spine1": ("spine", "spine1", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
     "chest": ("spine", "chest", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
     "neck": ("chest", "neck", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
     "head": ("neck", "head", np.array([0.0, 1.0, 0.0], dtype=np.float32)),
@@ -38,8 +39,10 @@ LIMB_VECTORS: Dict[str, Tuple[str, str, np.ndarray]] = {
     "right_forearm": ("right_forearm", "right_hand", np.array([-1.0, 0.0, 0.0], dtype=np.float32)),
     "left_upleg": ("left_upleg", "left_leg", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
     "left_leg": ("left_leg", "left_foot", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
+    "left_toe": ("left_foot", "left_toe", np.array([0.0, 0.0, 1.0], dtype=np.float32)),
     "right_upleg": ("right_upleg", "right_leg", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
     "right_leg": ("right_leg", "right_foot", np.array([0.0, -1.0, 0.0], dtype=np.float32)),
+    "right_toe": ("right_foot", "right_toe", np.array([0.0, 0.0, 1.0], dtype=np.float32)),
 }
 
 

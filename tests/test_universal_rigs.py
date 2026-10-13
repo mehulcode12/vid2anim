@@ -326,5 +326,79 @@ def test_topological_aim_and_zero_inversion(tmp_path):
             assert np.allclose(norms, 1.0, atol=1e-3), f"Non-unit quaternion in {b_name} for {model_name}"
 
 
+def test_extended_skeletal_coverage_toes_spine1_twists_and_fingers():
+    """Verify that modern rigs have 50-70+ bones animated: toes, spine1, twist bones, and fingers."""
+    from pathlib import Path
+    import numpy as np
+    from vid2anim.core.rig_detector import inspect_model, parse_glb_json
+    from vid2anim.core.universal_transfer import UniversalTransferSolver
+    from vid2anim.core.canonical_skeleton import solve_canonical_motion
+    from vid2anim.utils.fixtures import create_synthetic_motion_sequence
+
+    motion = create_synthetic_motion_sequence(frames=10, fps=25.0)
+    canon = solve_canonical_motion(motion)
+
+    # 1. Robot Police (Character Creator with twist helper bones & full fingers)
+    cc_path = Path("glb") / "robot_police_unit_animated.glb"
+    if cc_path.exists():
+        rig = inspect_model(cc_path)
+        assert "left_toe" in rig.bone_mapping
+        assert "right_toe" in rig.bone_mapping
+        assert "spine1" in rig.bone_mapping
+        assert rig.bone_mapping["left_toe"] == "CC_Base_L_ToeBase_08"
+        assert rig.bone_mapping["right_toe"] == "CC_Base_R_ToeBase_00"
+        assert rig.bone_mapping["spine1"] == "CC_Base_Spine01_034"
+
+        gltf, _ = parse_glb_json(cc_path)
+        solver = UniversalTransferSolver(gltf, rig)
+        assert len(solver.twist_helpers) > 0, "Character Creator twist helper bones must be discovered"
+        assert len(solver.finger_bones) == 30, "All 30 finger bones must be discovered"
+
+        bone_rots, _ = solver.transfer_motion(canon, raw_motion=motion)
+        # Should animate canonical (22) + twist helpers (25) + fingers (30) = 77 bones!
+        assert len(bone_rots) >= 70, f"Expected 70+ animated bones for CC rig, got {len(bone_rots)}"
+
+        # Check twist bone track exists and is valid
+        assert "CC_Base_L_ForearmTwist01_052" in bone_rots
+        assert "CC_Base_L_Index1_059" in bone_rots
+
+    # 2. SCP 1471 (Full toes + 30 fingers)
+    scp_path = Path("glb") / "scp_1471_mal0_stylized_low_poly_character.glb"
+    if scp_path.exists():
+        rig = inspect_model(scp_path)
+        assert "left_toe" in rig.bone_mapping
+        assert "right_toe" in rig.bone_mapping
+        assert rig.bone_mapping["left_toe"] == "Toe.L_0117"
+        assert rig.bone_mapping["right_toe"] == "Toe.R_0121"
+
+        gltf, _ = parse_glb_json(scp_path)
+        solver = UniversalTransferSolver(gltf, rig)
+        assert len(solver.finger_bones) == 30, "All 30 finger bones must be discovered"
+
+        bone_rots, _ = solver.transfer_motion(canon, raw_motion=motion)
+        assert len(bone_rots) >= 50, f"Expected 50+ animated bones for SCP 1471, got {len(bone_rots)}"
+        assert "Toe.L_0117" in bone_rots
+        assert "Index1.L_081" in bone_rots
+
+    # 3. Cyborg Oni (Full toes + 30 fingers)
+    oni_path = Path("glb") / "cyborg_oni.glb"
+    if oni_path.exists():
+        rig = inspect_model(oni_path)
+        assert "left_toe" in rig.bone_mapping
+        assert "right_toe" in rig.bone_mapping
+        assert rig.bone_mapping["left_toe"] == "CyberdemonRig:JNT_toe_l_061"
+        assert rig.bone_mapping["right_toe"] == "CyberdemonRig:JNT_toe_r_071"
+
+        gltf, _ = parse_glb_json(oni_path)
+        solver = UniversalTransferSolver(gltf, rig)
+        assert len(solver.finger_bones) == 30, "All 30 finger bones must be discovered"
+
+        bone_rots, _ = solver.transfer_motion(canon, raw_motion=motion)
+        assert len(bone_rots) >= 50, f"Expected 50+ animated bones for Cyborg Oni, got {len(bone_rots)}"
+        assert "CyberdemonRig:JNT_toe_l_061" in bone_rots
+        assert "CyberdemonRig:JNT_index_1_l_033" in bone_rots
+
+
+
 
 

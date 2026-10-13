@@ -45,7 +45,8 @@ def _orthonormalize_matrix(m: np.ndarray) -> np.ndarray:
 
 
 LIMB_CHILD: Dict[str, str] = {
-    "spine": "chest",
+    "spine": "spine1",
+    "spine1": "chest",
     "chest": "neck",
     "neck": "head",
     "left_shoulder": "left_arm",
@@ -56,12 +57,15 @@ LIMB_CHILD: Dict[str, str] = {
     "right_forearm": "right_hand",
     "left_upleg": "left_leg",
     "left_leg": "left_foot",
+    "left_foot": "left_toe",
     "right_upleg": "right_leg",
     "right_leg": "right_foot",
+    "right_foot": "right_toe",
 }
 
 LIMB_HUMAN_PAIRS: Dict[str, Tuple[str, str]] = {
     "spine": ("hips", "spine"),
+    "spine1": ("spine", "spine1"),
     "chest": ("spine", "chest"),
     "neck": ("chest", "neck"),
     "head": ("neck", "head"),
@@ -73,13 +77,16 @@ LIMB_HUMAN_PAIRS: Dict[str, Tuple[str, str]] = {
     "right_forearm": ("right_forearm", "right_hand"),
     "left_upleg": ("left_upleg", "left_leg"),
     "left_leg": ("left_leg", "left_foot"),
+    "left_foot": ("left_foot", "left_toe"),
     "right_upleg": ("right_upleg", "right_leg"),
     "right_leg": ("right_leg", "right_foot"),
+    "right_foot": ("right_foot", "right_toe"),
 }
 
 SOLVE_ORDER: List[str] = [
     "hips",
     "spine",
+    "spine1",
     "chest",
     "neck",
     "head",
@@ -94,9 +101,11 @@ SOLVE_ORDER: List[str] = [
     "left_upleg",
     "left_leg",
     "left_foot",
+    "left_toe",
     "right_upleg",
     "right_leg",
     "right_foot",
+    "right_toe",
 ]
 
 
@@ -214,6 +223,83 @@ class UniversalTransferSolver:
                         ik_node_idx = self.parent_of[f_idx]
                         self.detached_foot_nodes[canon_foot] = (f_idx, ik_node_idx, l_idx)
 
+        # Discover procedural twist helpers and share bones
+        self.twist_helpers: Dict[int, Tuple[int, float, str]] = {}
+        self.share_bones: Dict[int, Tuple[int, float, str]] = {}
+        mapped_target_names = set(self.rig_info.bone_mapping.values())
+
+        for idx, node in enumerate(self.nodes):
+            name = node.get("name", "")
+            if name in mapped_target_names or "scalecompensation" in name.lower():
+                continue
+            name_l = name.lower()
+
+            if "twist" in name_l or ("roll" in name_l and "ctrl" not in name_l):
+                side_str = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
+                if any(k in name_l for k in ["forearm", "lowerarm", "elbow"]):
+                    p_canon = f"{side_str}_forearm"
+                    weight = 0.50
+                elif any(k in name_l for k in ["upperarm", "arm"]):
+                    p_canon = f"{side_str}_arm"
+                    weight = 0.50
+                elif any(k in name_l for k in ["calf", "shin", "lowerleg", "knee"]):
+                    p_canon = f"{side_str}_leg"
+                    weight = 0.50
+                elif any(k in name_l for k in ["thigh", "upperleg"]):
+                    p_canon = f"{side_str}_upleg"
+                    weight = 0.50
+                elif "neck" in name_l:
+                    p_canon = "neck"
+                    weight = 0.50
+                else:
+                    p_canon = None
+                    weight = 0.0
+
+                if p_canon and p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.twist_helpers[idx] = (p_idx, weight, p_canon)
+
+            elif "sharebone" in name_l or "share_bone" in name_l or "share" in name_l:
+                side_str = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
+                if "elbow" in name_l:
+                    p_canon = f"{side_str}_forearm"
+                    weight = -0.35
+                elif "knee" in name_l:
+                    p_canon = f"{side_str}_leg"
+                    weight = -0.35
+                elif "toe" in name_l:
+                    p_canon = f"{side_str}_toe" if f"{side_str}_toe" in self.rig_info.bone_mapping else f"{side_str}_foot"
+                    weight = 0.50
+                else:
+                    p_canon = None
+                    weight = 0.0
+
+                if p_canon and p_canon in self.rig_info.bone_mapping:
+                    primary_name = self.rig_info.bone_mapping[p_canon]
+                    p_idx = self.name_to_idx.get(primary_name)
+                    if p_idx is not None:
+                        self.share_bones[idx] = (p_idx, weight, p_canon)
+
+        # Discover finger bones for procedural relaxed posing & dynamic flexion
+        self.finger_bones: List[Tuple[int, str, int, bool]] = []
+        for idx, node in enumerate(self.nodes):
+            name = node.get("name", "")
+            if name in mapped_target_names or "scalecompensation" in name.lower() or "ctrl" in name.lower():
+                continue
+            name_l = name.lower()
+            if any(k in name_l for k in ["thumb", "index", "mid", "middle", "ring", "pinky", "little", "rittre", "finger"]) and "toe" not in name_l:
+                side = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
+                if any(p in name_l for p in ["3", "03", "distal"]):
+                    phalanx = 3
+                elif any(p in name_l for p in ["2", "02", "inter", "mid"]):
+                    phalanx = 2
+                else:
+                    phalanx = 1
+                is_thumb = "thumb" in name_l
+                self.finger_bones.append((idx, side, phalanx, is_thumb))
+
         self.node_translations: Dict[str, np.ndarray] = {}
 
     def _build_topological_order(self) -> List[int]:
@@ -236,9 +322,12 @@ class UniversalTransferSolver:
     def _build_topological_aim_axes(self) -> None:
         """Discover each bone's physical heading vector in its local coordinate frame."""
         for canon_p, canon_c in LIMB_CHILD.items():
-            if canon_p in self.rig_info.bone_mapping and canon_c in self.rig_info.bone_mapping:
+            canon_c_actual = canon_c
+            if canon_p == "spine" and "spine1" not in self.rig_info.bone_mapping:
+                canon_c_actual = "chest"
+            if canon_p in self.rig_info.bone_mapping and canon_c_actual in self.rig_info.bone_mapping:
                 p_b = self.rig_info.bone_mapping[canon_p]
-                c_b = self.rig_info.bone_mapping[canon_c]
+                c_b = self.rig_info.bone_mapping[canon_c_actual]
                 if p_b in self.name_to_idx and c_b in self.name_to_idx:
                     p_idx = self.name_to_idx[p_b]
                     c_idx = self.name_to_idx[c_b]
@@ -266,6 +355,22 @@ class UniversalTransferSolver:
                             self.aim_local[canon_foot] = m_rot.T @ normalize(v_w)
                     if canon_foot not in self.aim_local:
                         self.aim_local[canon_foot] = m_rot.T @ np.array([0.0, 0.0, 1.0])
+
+        # For toes, discover aim axis from toe child (tip) or forward default
+        for canon_toe in ["left_toe", "right_toe"]:
+            if canon_toe in self.rig_info.bone_mapping:
+                tb = self.rig_info.bone_mapping[canon_toe]
+                if tb in self.name_to_idx:
+                    idx = self.name_to_idx[tb]
+                    ch_list = self.children_of.get(idx, [])
+                    m_rot = _orthonormalize_matrix(self.rest_world_mat[idx][:3, :3])
+                    if ch_list:
+                        ch_idx = ch_list[0]
+                        v_w = self.rest_world_mat[ch_idx][:3, 3] - self.rest_world_mat[idx][:3, 3]
+                        if float(np.linalg.norm(v_w)) > 1e-5:
+                            self.aim_local[canon_toe] = m_rot.T @ normalize(v_w)
+                    if canon_toe not in self.aim_local:
+                        self.aim_local[canon_toe] = m_rot.T @ np.array([0.0, 0.0, 1.0])
 
         # For hands, discover along-local axis from child node or forearm direction
         for canon_hand in ["left_hand", "right_hand"]:
@@ -368,8 +473,24 @@ class UniversalTransferSolver:
                 prev_quat[target_bone] = q_init
                 prev_rot_mat[target_bone] = quat_xyzw_to_matrix(q_init)
 
+        # Initialize rotation tracks for procedural helper twist and share bones
+        for h_idx in list(self.twist_helpers.keys()) + list(self.share_bones.keys()):
+            h_name = self.idx_to_name[h_idx]
+            bone_rotations[h_name] = np.zeros((num_frames, 4), dtype=np.float32)
+            q_init = self.rest_local_quat[h_idx].astype(np.float32)
+            prev_quat[h_name] = q_init
+            prev_rot_mat[h_name] = quat_xyzw_to_matrix(q_init)
+
+        # Initialize rotation tracks for procedural finger bones
+        for f_idx, _, _, _ in self.finger_bones:
+            f_name = self.idx_to_name[f_idx]
+            bone_rotations[f_name] = np.zeros((num_frames, 4), dtype=np.float32)
+            q_init = self.rest_local_quat[f_idx].astype(np.float32)
+            prev_quat[f_name] = q_init
+            prev_rot_mat[f_name] = quat_xyzw_to_matrix(q_init)
+
         # Fully determined bones where twist continuity must not override direct 3D orientation
-        fully_determined: Set[str] = {"hips", "chest", "left_foot", "right_foot"}
+        fully_determined: Set[str] = {"hips", "chest", "left_foot", "right_foot", "left_toe", "right_toe", "spine1"}
 
         # Solve per-frame hierarchical rotations with Forward Kinematics propagation
         for f in range(num_frames):
@@ -432,6 +553,19 @@ class UniversalTransferSolver:
                         r_canon_f = canonical_motion.r_anim[f].get("hips", np.eye(3))
                         r_local = r_bone_rest @ r_canon_f
 
+                elif canon == "spine1":
+                    if "spine1" in joint_pos and "chest" in joint_pos:
+                        v_human = joint_pos["chest"][f] - joint_pos["spine1"][f]
+                    elif "spine" in joint_pos and "chest" in joint_pos:
+                        v_human = joint_pos["chest"][f] - joint_pos["spine"][f]
+                    else:
+                        v_human = np.array([0.0, 1.0, 0.0])
+                    d_aim = self.aim_local.get("spine1", np.array([0.0, 1.0, 0.0]))
+                    target_w = normalize(v_human, np.array([0.0, 1.0, 0.0]))
+                    target_in_parent = w_parent.T @ target_w
+                    r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
+                    r_local = r_delta @ r_bone_rest
+
                 elif canon == "chest":
                     if "left_shoulder" in joint_pos and "right_shoulder" in joint_pos and "neck" in joint_pos and "spine" in joint_pos:
                         v_lat = joint_pos["left_shoulder"][f] - joint_pos["right_shoulder"][f]
@@ -466,6 +600,23 @@ class UniversalTransferSolver:
                     r_tgt_frame = frame_from_primary_secondary(tgt_along, tgt_up)
                     r_foot_world = (r_tgt_frame @ r_rest_frame.T) @ w_bone_rest
                     r_local = w_parent.T @ r_foot_world
+
+                elif canon in ["left_toe", "right_toe"]:
+                    side_foot = "left_foot" if "left" in canon else "right_foot"
+                    if canon in joint_pos and side_foot in joint_pos:
+                        dy_toe = float(joint_pos[side_foot][f, 1] - joint_pos[canon][f, 1])
+                    else:
+                        dy_toe = 0.0
+                    pitch_rad = float(np.arcsin(np.clip(dy_toe / 0.12, 0.0, 0.70))) if dy_toe > 0.02 else 0.0
+                    along_local = self.aim_local.get(canon, np.array([0.0, 0.0, 1.0]))
+                    axis_lat = normalize(np.cross(np.array([0.0, 1.0, 0.0]), along_local), np.array([1.0, 0.0, 0.0]))
+                    if abs(pitch_rad) > 1e-4:
+                        c_p, s_p = np.cos(pitch_rad), np.sin(pitch_rad)
+                        u = axis_lat
+                        r_pitch = np.eye(3) * c_p + (1.0 - c_p) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_p
+                        r_local = r_bone_rest @ r_pitch
+                    else:
+                        r_local = r_bone_rest
 
                 elif canon in ["left_hand", "right_hand"]:
                     # Aim hand along wrist -> fingers direction
@@ -530,6 +681,101 @@ class UniversalTransferSolver:
                 q_clean = continue_quaternion_xyzw(q_anim, prev_quat.get(target_bone))
                 prev_quat[target_bone] = q_clean
                 bone_rotations[target_bone][f] = q_clean
+
+            # Procedural helper twist and share bone propagation
+            for h_idx, (p_idx, weight, p_canon) in self.twist_helpers.items():
+                r_prim_loc = curr_local_rot[p_idx]
+                r_prim_rest = quat_xyzw_to_matrix(self.rest_local_quat[p_idx])
+                r_delta = r_prim_loc @ r_prim_rest.T
+                q_delta = matrix_to_quat_xyzw(r_delta)
+
+                d_aim = self.aim_local.get(p_canon, np.array([0.0, 1.0, 0.0]))
+                proj = float(np.dot(q_delta[:3], d_aim))
+                q_twist = np.array([proj * d_aim[0], proj * d_aim[1], proj * d_aim[2], q_delta[3]], dtype=np.float64)
+                norm_q = float(np.linalg.norm(q_twist))
+                if norm_q > 1e-6:
+                    q_twist /= norm_q
+                    half_angle = float(np.arccos(np.clip(q_twist[3], -1.0, 1.0)))
+                    frac_half = half_angle * weight
+                    sin_h = float(np.sin(half_angle))
+                    u_axis = q_twist[:3] / sin_h if abs(sin_h) > 1e-6 else d_aim
+                    q_frac = np.array([u_axis[0] * np.sin(frac_half), u_axis[1] * np.sin(frac_half), u_axis[2] * np.sin(frac_half), np.cos(frac_half)], dtype=np.float64)
+                    r_frac = quat_xyzw_to_matrix(q_frac)
+                else:
+                    r_frac = np.eye(3, dtype=np.float64)
+
+                r_h_rest = quat_xyzw_to_matrix(self.rest_local_quat[h_idx])
+                r_h_loc = r_h_rest @ r_frac
+                curr_local_rot[h_idx] = r_h_loc
+                h_name = self.idx_to_name[h_idx]
+                q_clean = continue_quaternion_xyzw(matrix_to_quat_xyzw(r_h_loc), prev_quat.get(h_name))
+                prev_quat[h_name] = q_clean
+                bone_rotations[h_name][f] = q_clean
+
+            for s_idx, (p_idx, weight, p_canon) in self.share_bones.items():
+                r_prim_loc = curr_local_rot[p_idx]
+                r_prim_rest = quat_xyzw_to_matrix(self.rest_local_quat[p_idx])
+                r_delta = r_prim_loc @ r_prim_rest.T
+                q_delta = matrix_to_quat_xyzw(r_delta)
+                half_angle = float(np.arccos(np.clip(q_delta[3], -1.0, 1.0)))
+                frac_half = half_angle * weight
+                sin_h = float(np.sin(half_angle))
+                u_axis = q_delta[:3] / sin_h if abs(sin_h) > 1e-6 else np.array([0.0, 1.0, 0.0])
+                q_frac = np.array([u_axis[0] * np.sin(frac_half), u_axis[1] * np.sin(frac_half), u_axis[2] * np.sin(frac_half), np.cos(frac_half)], dtype=np.float64)
+                r_s_rest = quat_xyzw_to_matrix(self.rest_local_quat[s_idx])
+                r_s_loc = r_s_rest @ quat_xyzw_to_matrix(q_frac)
+                curr_local_rot[s_idx] = r_s_loc
+                s_name = self.idx_to_name[s_idx]
+                q_clean = continue_quaternion_xyzw(matrix_to_quat_xyzw(r_s_loc), prev_quat.get(s_name))
+                prev_quat[s_name] = q_clean
+                bone_rotations[s_name][f] = q_clean
+
+            # Procedural relaxed hand posing and dynamic flexion
+            for f_idx, side, phalanx, is_thumb in self.finger_bones:
+                w_key = f"{side}_hand"
+                i_key = f"{side}_fingers"
+                if w_key in joint_pos and i_key in joint_pos:
+                    d_hand = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f]))
+                    curl_dyn = float(np.clip((0.17 - d_hand) / 0.09, 0.0, 1.0))
+                else:
+                    curl_dyn = 0.0
+
+                if is_thumb:
+                    deg = 12.0 * (0.35 + 0.85 * curl_dyn)
+                else:
+                    base_deg = {1: 15.0, 2: 25.0, 3: 15.0}.get(phalanx, 15.0)
+                    deg = base_deg * (0.35 + 0.85 * curl_dyn)
+                rad = float(np.radians(deg))
+
+                h_canon = f"{side}_hand"
+                h_name = self.rig_info.bone_mapping.get(h_canon)
+                h_idx = self.name_to_idx.get(h_name) if h_name else None
+                m_hand_w = curr_world_rot.get(h_idx, np.eye(3)) if h_idx is not None else np.eye(3)
+                v_lat_w = m_hand_w[:, 0]
+
+                r_f_rest_w = _orthonormalize_matrix(self.rest_world_mat[f_idx][:3, :3])
+                axis_curl = r_f_rest_w.T @ v_lat_w
+
+                ch_list = self.children_of.get(f_idx, [])
+                if ch_list and float(np.linalg.norm(self.rest_local_trans[ch_list[0]])) > 1e-4:
+                    d_aim = normalize(self.rest_local_trans[ch_list[0]])
+                    axis_curl = axis_curl - float(np.dot(axis_curl, d_aim)) * d_aim
+                axis_curl = normalize(axis_curl, np.array([0.0, 0.0, 1.0]))
+
+                c_a, s_a = np.cos(rad), np.sin(rad)
+                u = axis_curl
+                r_curl = np.eye(3) * c_a + (1.0 - c_a) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_a
+                r_f_rest = quat_xyzw_to_matrix(self.rest_local_quat[f_idx])
+                r_f_loc = r_f_rest @ r_curl
+
+                curr_local_rot[f_idx] = r_f_loc
+                f_name = self.idx_to_name[f_idx]
+                q_clean = continue_quaternion_xyzw(matrix_to_quat_xyzw(r_f_loc), prev_quat.get(f_name))
+                prev_quat[f_name] = q_clean
+                bone_rotations[f_name][f] = q_clean
+
+            # Update FK with procedural bones
+            _update_fk()
 
             # Animate detached IK foot nodes so meshes stay 100% attached at the ankles
             for canon_foot, (f_idx, ik_idx, l_idx) in self.detached_foot_nodes.items():
