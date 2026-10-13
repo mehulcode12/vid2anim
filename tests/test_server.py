@@ -39,6 +39,10 @@ def test_server_homepage_html(running_server):
     assert "engineCardDwpose" in content
     assert "DWPose WholeBody" in content
     assert "selectedEngine" in content
+    # Rig Specifications Guide Modal
+    assert "rigGuideModal" in content
+    assert "openRigGuideModal" in content
+    assert "Supported Formats & Rigs" in content
 
 
 def test_server_diagnostics_endpoint(running_server):

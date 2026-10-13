@@ -744,6 +744,192 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       color: var(--text-bright);
       font-weight: 600;
     }
+
+    /* Section Header Link */
+    .section-link-btn {
+      font-size: 0.68rem;
+      color: #818cf8;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      transition: color 0.15s;
+    }
+    .section-link-btn:hover {
+      color: #a5b4fc;
+    }
+
+    /* Specifications & Rig Guide Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal-dialog {
+      width: 720px;
+      max-width: 95vw;
+      max-height: 85vh;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      animation: modalFadeIn 0.15s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0d1016;
+    }
+    .modal-title-group h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 2px;
+    }
+    .modal-title-group p {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: all 0.15s;
+    }
+    .modal-close-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-bright);
+    }
+    .modal-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 0 16px;
+      gap: 16px;
+    }
+    .modal-tab-btn {
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .modal-tab-btn:hover {
+      color: var(--text-bright);
+    }
+    .modal-tab-btn.active {
+      color: #818cf8;
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+    .modal-body {
+      padding: 16px 18px;
+      overflow-y: auto;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .modal-section h4 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.74rem;
+      margin-top: 6px;
+    }
+    .spec-table th, .spec-table td {
+      padding: 6px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .spec-table th {
+      color: var(--text-dim);
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .spec-table td {
+      color: var(--text);
+    }
+    .spec-pill {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255, 255, 255, 0.06);
+      color: #a5b4fc;
+    }
+    .spec-pill.success {
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+    }
+    .spec-code {
+      font-family: 'JetBrains Mono', monospace;
+      background: #090c10;
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      color: #38bdf8;
+      font-size: 0.74rem;
+      display: block;
+      margin-top: 6px;
+    }
+    .modal-footer {
+      padding: 10px 18px;
+      border-top: 1px solid var(--border);
+      background: #0d1016;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
   </style>
 </head>
 <body>
@@ -757,6 +943,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
     <div class="header-actions">
       <div id="deviceBadge" class="device-pill">CPU</div>
+      <button type="button" class="header-link" onclick="openRigGuideModal('rigs')" title="View supported 3D models, armatures, and bone naming">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Model &amp; Rig Specs</span>
+      </button>
       <a class="header-link" href="https://github.com/mehulcode12/vid2anim" target="_blank" rel="noopener noreferrer" title="View Source on GitHub">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
         <span>GitHub</span>
@@ -787,7 +977,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
       <!-- Section: 3D Model Upload -->
       <div class="section-card">
-        <div class="section-title">Target Character</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="section-title">Target Character</div>
+          <button type="button" class="section-link-btn" onclick="openRigGuideModal('rigs')" title="What models &amp; rigs are supported?">Supported Rigs ↗</button>
+        </div>
         <div class="upload-zone" id="modelZone" onclick="document.getElementById('modelInput').click()">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           <p>Drop 3D character</p>
@@ -1381,8 +1574,29 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           toggleSkeleton();
         } else if (e.code === 'KeyG') {
           toggleGrid();
+        } else if (e.code === 'Escape') {
+          closeRigGuideModal();
         }
       });
+    }
+
+    // Model & Rigging Guide Modal Handlers
+    function openRigGuideModal(tabId) {
+      document.getElementById('rigGuideModal').classList.add('open');
+      if (tabId) switchGuideTab(tabId);
+    }
+
+    function closeRigGuideModal() {
+      document.getElementById('rigGuideModal').classList.remove('open');
+    }
+
+    function switchGuideTab(tabId) {
+      document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.guide-tab-pane').forEach(p => p.style.display = 'none');
+      const btn = document.getElementById('tabBtn_' + tabId);
+      const pane = document.getElementById('tabPane_' + tabId);
+      if (btn) btn.classList.add('active');
+      if (pane) pane.style.display = 'block';
     }
 
     // Diagnostics & File Handlers
@@ -1630,6 +1844,209 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     window.onload = init3D;
   </script>
+  <!-- Model & Rigging Specifications Modal -->
+  <div class="modal-overlay" id="rigGuideModal" onclick="if(event.target===this) closeRigGuideModal()">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3>3D Model &amp; Rigging Specifications</h3>
+          <p>Supported formats, skeletal armature standards, and bone naming conventions</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeRigGuideModal()" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab-btn active" id="tabBtn_rigs" onclick="switchGuideTab('rigs')">Supported Formats &amp; Rigs</button>
+        <button type="button" class="modal-tab-btn" id="tabBtn_mapping" onclick="switchGuideTab('mapping')">Bone Mapping &amp; Fingers</button>
+        <button type="button" class="modal-tab-btn" id="tabBtn_checklist" onclick="switchGuideTab('checklist')">Requirements &amp; CLI</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Pane 1: Supported Formats & Rigs -->
+        <div class="guide-tab-pane" id="tabPane_rigs">
+          <div class="modal-section">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              Supported 3D File Formats
+            </h4>
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>Format</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="spec-pill success">.GLB</span></td>
+                  <td>Recommended</td>
+                  <td>glTF 2.0 Binary container. Embeds mesh, skeleton hierarchy, and vertex skin weights in one file.</td>
+                </tr>
+                <tr>
+                  <td><span class="spec-pill">.GLTF</span></td>
+                  <td>Supported</td>
+                  <td>glTF 2.0 JSON format (with separate or embedded .bin buffers).</td>
+                </tr>
+                <tr>
+                  <td><span class="spec-pill">.FBX</span></td>
+                  <td>Supported</td>
+                  <td>Humanoid FBX assets with standard skeletal armatures.</td>
+                </tr>
+                <tr>
+                  <td><span class="spec-pill" style="color:var(--text-dim)">.OBJ</span></td>
+                  <td>Static Only</td>
+                  <td>Static geometry only. OBJ does not support skeletons or skin weights (requires rigging first).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="modal-section" style="margin-top:12px;">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="12" y1="12" x2="6" y2="10"/><line x1="12" y1="12" x2="18" y2="10"/><line x1="12" y1="16" x2="8" y2="21"/><line x1="12" y1="16" x2="16" y2="21"/></svg>
+              Recognized Armature &amp; Rig Ecosystems
+            </h4>
+            <p style="color:var(--text-dim); margin-bottom:8px;">vid2anim includes an intelligent NLP semantic matcher and kinematic graph solver that automatically identifies these industry rig conventions:</p>
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>Rig Standard</th>
+                  <th>Typical Bone Naming</th>
+                  <th>Detection</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Adobe Mixamo</strong></td>
+                  <td><code>mixamorig:Hips</code>, <code>mixamorig:LeftArm</code>, <code>mixamorig:RightUpLeg</code></td>
+                  <td><span class="spec-pill success">Native Auto-Detect</span></td>
+                </tr>
+                <tr>
+                  <td><strong>VRM / Ready Player Me</strong></td>
+                  <td><code>J_Bip_C_Hips</code>, <code>J_Bip_L_UpperArm</code>, <code>J_Bip_L_Hand</code></td>
+                  <td><span class="spec-pill success">Native Auto-Detect</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Blender Rigify</strong></td>
+                  <td><code>def-spine</code>, <code>def-upper_arm.l</code>, <code>def-thigh.r</code></td>
+                  <td><span class="spec-pill success">Native Auto-Detect</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Unreal Engine (UE4/UE5)</strong></td>
+                  <td><code>pelvis</code>, <code>upperarm_l</code>, <code>lowerarm_l</code>, <code>thigh_r</code></td>
+                  <td><span class="spec-pill success">Native Auto-Detect</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Character Creator / Daz</strong></td>
+                  <td><code>CC_Base_Pelvis</code>, <code>CC_Base_L_Upperarm</code>, <code>b_hips</code></td>
+                  <td><span class="spec-pill success">Native Auto-Detect</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Generic Humanoid</strong></td>
+                  <td>Snake_case, CamelCase, dot notation, or Japanese Kanji (<code>腰</code>, <code>腕</code>)</td>
+                  <td><span class="spec-pill success">Semantic Matcher</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Pane 2: Bone Mapping & Fingers -->
+        <div class="guide-tab-pane" id="tabPane_mapping" style="display:none;">
+          <div class="modal-section">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Canonical Humanoid Hierarchy (22 Primary Bones)
+            </h4>
+            <p style="color:var(--text-dim); margin-bottom:8px;">Extracted 3D poses are transferred via reference forward kinematics onto this core hierarchy:</p>
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>Anatomical Region</th>
+                  <th>Canonical Joints</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Pelvis / Root</strong></td>
+                  <td><code>hips</code> (acts as motion root with 6-DOF translation &amp; rotation)</td>
+                </tr>
+                <tr>
+                  <td><strong>Spine &amp; Torso</strong></td>
+                  <td><code>spine</code> &rarr; <code>spine1</code> &rarr; <code>chest</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Head &amp; Neck</strong></td>
+                  <td><code>neck</code> &rarr; <code>head</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Left Upper Limb</strong></td>
+                  <td><code>left_shoulder</code> &rarr; <code>left_arm</code> &rarr; <code>left_forearm</code> &rarr; <code>left_hand</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Right Upper Limb</strong></td>
+                  <td><code>right_shoulder</code> &rarr; <code>right_arm</code> &rarr; <code>right_forearm</code> &rarr; <code>right_hand</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Left Lower Limb</strong></td>
+                  <td><code>left_upleg</code> &rarr; <code>left_leg</code> &rarr; <code>left_foot</code> &rarr; <code>left_toe</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Right Lower Limb</strong></td>
+                  <td><code>right_upleg</code> &rarr; <code>right_leg</code> &rarr; <code>right_foot</code> &rarr; <code>right_toe</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="modal-section" style="margin-top:12px;">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+              Fingers &amp; Procedural Helpers
+            </h4>
+            <p style="color:var(--text-dim); margin-bottom:6px;">If your character rig has finger bones or twist helpers, vid2anim automatically animates them:</p>
+            <ul style="color:var(--text); padding-left:18px; line-height:1.6; font-size:0.74rem;">
+              <li><strong>Independent 5-Digit Finger Cascade</strong>: Proximal, intermediate, and distal phalanges for Thumb, Index, Middle, Ring, and Pinky are articulated with natural anatomical flexion based on tracked hand gestures.</li>
+              <li><strong>Twist &amp; Share Bones</strong>: Arm, forearm, and thigh twist helper bones are driven with proportional fractional rotations to prevent mesh pinching at joints.</li>
+              <li><strong>IK &amp; Accessory Bones</strong>: Detached IK foot nodes and hip attachments follow character ground translations cleanly.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Pane 3: Requirements & CLI -->
+        <div class="guide-tab-pane" id="tabPane_checklist" style="display:none;">
+          <div class="modal-section">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Character Preparation Checklist
+            </h4>
+            <div style="display:flex; flex-direction:column; gap:8px; font-size:0.74rem; color:var(--text);">
+              <div>&bull; <strong>Mesh Must Be Skinned</strong>: In Blender or your 3D software, the mesh object must have an Armature modifier with vertex skinning weights (glTF <code>skins</code> definition).</div>
+              <div>&bull; <strong>Bind Pose (T-Pose / A-Pose)</strong>: The default pose of the character should ideally be a standard T-Pose or A-Pose. vid2anim automatically measures rest arm angles (0&deg; to 65&deg;) and compensates.</div>
+              <div>&bull; <strong>Orientation</strong>: Model should be upright (Y-Up axis) facing forwards (+Z or -Z).</div>
+              <div>&bull; <strong>Scale</strong>: Real-world metric dimensions (approx. 1.6m to 1.9m tall for adult humanoids).</div>
+            </div>
+          </div>
+
+          <div class="modal-section" style="margin-top:12px;">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              CLI Model Rig Inspector
+            </h4>
+            <p style="color:var(--text-dim);">You can test and inspect any 3D asset from the command line before retargeting:</p>
+            <code class="spec-code">vid2anim inspect path/to/character.glb</code>
+            <p style="color:var(--text-dim); margin-top:6px;">This command analyzes the armature, prints detected rig type, mapped joint count, rest arm angle, and warns about any missing core bones.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span>Press <kbd style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px; font-family:inherit;">Esc</kbd> or click outside to dismiss</span>
+        <button type="button" class="ctrl-btn active" onclick="closeRigGuideModal()" style="padding:4px 14px;">Close</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
 """
