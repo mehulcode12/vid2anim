@@ -136,7 +136,7 @@ class Vid2AnimPipeline:
                 fps=motion.fps,
                 elapsed_time_sec=round(elapsed, 2),
                 rig_profile=rig_info.rig_type.value,
-                mapped_bones_count=len(rig_info.bone_mapping),
+                mapped_bones_count=len(animation.bone_rotations),
                 warnings=warnings + rig_info.warnings,
             )
 

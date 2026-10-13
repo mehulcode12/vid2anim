@@ -77,7 +77,7 @@ class UniversalRetargeter:
         self.reporter.report(
             "RETARGET",
             0.1,
-            f"Retargeting {num_frames} frames onto {rig.rig_type.value} rig ({len(mapping)} mapped bones)",
+            f"Retargeting {num_frames} frames onto {rig.rig_type.value} rig ({len(mapping)} primary joints + procedural helpers & fingers)",
         )
 
         # 1. Solve hierarchical Forward Kinematics on the Canonical Humanoid Skeleton
@@ -92,7 +92,13 @@ class UniversalRetargeter:
                 bone_rotations, root_translations = solver.transfer_motion(canonical_motion, raw_motion=motion)
                 node_translations = getattr(solver, "node_translations", {})
 
-                self.reporter.report("RETARGET", 1.0, "Kinematic basis retargeting complete.")
+                n_helpers = len(solver.twist_helpers) + len(solver.share_bones)
+                n_fingers = len(solver.finger_bones)
+                self.reporter.report(
+                    "RETARGET",
+                    1.0,
+                    f"Kinematic basis retargeting complete: {len(bone_rotations)} total bones animated ({len(mapping)} primary + {n_fingers} fingers + {n_helpers} helpers).",
+                )
                 return RetargetedAnimation(
                     fps=motion.fps,
                     duration_sec=motion.duration_sec,

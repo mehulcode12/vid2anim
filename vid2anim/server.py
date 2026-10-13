@@ -462,12 +462,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         progressBar.style.width = '90%';
         statusText.innerText = 'Packing and loading animated character...';
 
+        const boneCount = response.headers.get('X-Animated-Bones');
         const blob = await response.blob();
         lastResultBlobUrl = URL.createObjectURL(blob);
         loadGLBModel(lastResultBlobUrl);
 
         progressBar.style.width = '100%';
-        statusText.innerText = 'Animation complete! Playing in 3D viewport.';
+        const boneInfo = boneCount ? ` (${boneCount} bones animated: toes, spine, twists, fingers)` : '';
+        statusText.innerText = `Animation complete!${boneInfo} Playing in 3D viewport.`;
         document.getElementById('downloadBtn').style.display = 'block';
       } catch (err) {
         statusText.innerText = 'Error: ' + err.message;
@@ -615,6 +617,8 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "model/gltf-binary")
                 self.send_header("Content-Length", str(len(glb_data)))
+                self.send_header("X-Animated-Bones", str(result.mapped_bones_count))
+                self.send_header("Access-Control-Expose-Headers", "X-Animated-Bones")
                 self.end_headers()
                 self.wfile.write(glb_data)
 
@@ -625,12 +629,20 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
 
 
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def start_server(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Launch the built-in local web server."""
-    with socketserver.TCPServer((host, port), Vid2AnimHTTPHandler) as httpd:
+    with ThreadedTCPServer((host, port), Vid2AnimHTTPHandler) as httpd:
         print("=" * 60)
         print(f" vid2anim Web UI & API Server running at:")
         print(f"   http://{host}:{port}")
         print(" Press Ctrl+C to stop.")
         print("=" * 60)
-        httpd.serve_forever()
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nShutting down server.")

@@ -254,7 +254,7 @@ class GLBAnimationExporter:
             f_out.write(b"BIN\x00")
             f_out.write(bin_appended)
 
-        self.reporter.report("EXPORT", 1.0, f"Successfully created: {out.name} ({total_len / (1024*1024):.2f} MB)")
+        self.reporter.report("EXPORT", 1.0, f"Successfully created: {out.name} ({len(channels)} animated tracks, {total_len / (1024*1024):.2f} MB)")
         return out
 
 
