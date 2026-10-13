@@ -110,27 +110,28 @@ class MotionExtractor:
 
     @staticmethod
     def _ensure_pose_landmarker_model() -> Optional[Path]:
-        """Ensure pose_landmarker_lite.task model is available, downloading if needed."""
+        """Ensure Google MediaPipe pose_landmarker_heavy.task model is available, downloading if needed."""
         # 1. Local models/
-        local_model = Path("models") / "pose_landmarker_lite.task"
+        local_model = Path("models") / "pose_landmarker_heavy.task"
         if local_model.exists():
             return local_model
 
         # 2. User cache directory
         cache_dir = Path.home() / ".cache" / "vid2anim"
-        cached_model = cache_dir / "pose_landmarker_lite.task"
+        cached_model = cache_dir / "pose_landmarker_heavy.task"
         if cached_model.exists():
             return cached_model
 
-        # 3. Download to cache
+        # 3. Download directly to local models directory
         try:
             import urllib.request
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            url = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
-            urllib.request.urlretrieve(url, cached_model)
-            return cached_model
+            local_model.parent.mkdir(parents=True, exist_ok=True)
+            url = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task"
+            urllib.request.urlretrieve(url, local_model)
+            return local_model
         except Exception:
             return None
+
 
     def _extract_photo(self, image_path: Path) -> MotionSequence:
         """Extract single-frame 3D pose from a photo."""
