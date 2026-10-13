@@ -54,8 +54,11 @@ def main() -> None:
     run_parser.add_argument("--input", "-i", required=True, help="Input video or photo (.mp4, .jpg, etc.)")
     run_parser.add_argument("--model", "-m", required=True, help="Target 3D character asset (.glb, .fbx, .obj)")
     run_parser.add_argument("--output", "-o", default=None, help="Output animated .glb path (default: outputs/<name>_animated.glb)")
+    run_parser.add_argument("--bvh", default=None, help="Optional output path to export standard .bvh mocap")
     run_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
     run_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds (default: 30.0)")
+    run_parser.add_argument("--no-smooth", action="store_true", help="Disable temporal anti-jitter filter")
+    run_parser.add_argument("--rest-pose", choices=["t_pose", "a_pose_30", "a_pose_45"], default="t_pose", help="Target model rest pose alignment (default: t_pose)")
     run_parser.add_argument("--progress-jsonl", default=None, help="Path to write streaming JSONL progress events (for Web UI / extensions)")
 
     args = parser.parse_args()
@@ -109,49 +112,37 @@ def main() -> None:
         sys.exit(0)
 
     elif args.command == "run":
-        reporter = ProgressReporter(jsonl_path=args.progress_jsonl)
-        input_path = Path(args.input)
-        model_path = Path(args.model)
+        from .core.calibration import RestPoseType
+        from .pipeline import PipelineConfig, Vid2AnimPipeline
 
-        out_path = Path(args.output) if args.output else Path("outputs") / f"{model_path.stem}_animated.glb"
+        config = PipelineConfig(
+            input_media=Path(args.input),
+            target_model=Path(args.model),
+            output_glb=Path(args.output) if args.output else None,
+            output_bvh=Path(args.bvh) if args.bvh else None,
+            device=args.device,
+            max_duration_sec=args.max_duration,
+            smooth=not args.no_smooth,
+            rest_pose=RestPoseType(args.rest_pose),
+            progress_jsonl=Path(args.progress_jsonl) if args.progress_jsonl else None,
+        )
 
-        print("=" * 60)
-        print("               vid2anim - Pipeline Execution")
-        print("=" * 60)
-        print(f"  Input Media : {input_path}")
-        print(f"  Target Model: {model_path}")
-        print(f"  Device      : {args.device.upper()}")
-        print(f"  Output      : {out_path}")
-        print("-" * 60)
+        pipeline = Vid2AnimPipeline(config)
+        result = pipeline.execute()
 
-        # 1. Rig Inspection
-        reporter.report("PIPELINE", 0.05, f"Inspecting 3D model: {model_path.name}")
-        rig_info = inspect_model(model_path)
-        if not rig_info.is_rigged:
-            reporter.report(
-                "PIPELINE",
-                0.08,
-                "[WARNING] Model has no bones. Running Experimental Auto-Rigger...",
-            )
-
-        # 2. Motion Extraction
-        extractor = MotionExtractor(device=args.device, reporter=reporter)
-        motion = extractor.extract_from_file(input_path, max_duration_sec=args.max_duration)
-
-        # 3. Retargeting
-        retargeter = UniversalRetargeter(reporter=reporter)
-        anim = retargeter.retarget(motion, rig_info)
-
-        # 4. Export
-        exporter = GLBAnimationExporter(reporter=reporter)
-        exporter.export_animated_glb(model_path, anim, rig_info, out_path)
-
-        reporter.report("PIPELINE", 1.0, f"Complete! Output saved to: {out_path}")
-        print("=" * 60)
-        print(f"SUCCESS: Your animated 3D character is ready at:\n  {out_path}")
-        print("You can open this .glb directly in Blender, Unity, or Windows 3D Viewer!")
-        print("=" * 60)
-        sys.exit(0)
+        if result.success:
+            print("=" * 60)
+            print(f"SUCCESS: Animated character exported to:\n  {result.output_glb}")
+            if result.output_bvh:
+                print(f"MoCap BVH file saved to:\n  {result.output_bvh}")
+            print(f"Processed {result.frame_count} frames ({result.duration_sec:.2f}s) in {result.elapsed_time_sec}s.")
+            print("=" * 60)
+            sys.exit(0)
+        else:
+            print("=" * 60)
+            print(f"ERROR: Execution failed: {result.error_message}")
+            print("=" * 60)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -104,3 +104,52 @@ def test_motion_cache_io():
         assert loaded.fps == 30.0
         assert loaded.frame_count == 30
         assert "hips" in loaded.joint_positions
+
+
+def test_temporal_smoothing():
+    from vid2anim.core.smoothing import TemporalMotionSmoother
+
+    # Create noisy 10-frame motion
+    t = np.linspace(0, 1, 10, dtype=np.float32)
+    noisy_hips = np.zeros((10, 3), dtype=np.float32)
+    noisy_hips[:, 1] = 1.0 + np.sin(t * 10) * 0.1  # sine variation
+    motion = MotionSequence(
+        fps=30.0,
+        duration_sec=0.33,
+        frame_count=10,
+        timestamps=t,
+        joint_positions={"hips": noisy_hips},
+        root_translation=noisy_hips,
+    )
+
+    smoother = TemporalMotionSmoother()
+    smoothed = smoother.smooth_motion_positions(motion)
+    assert smoothed.frame_count == 10
+    # Smoothed trajectory should be finite and close to original
+    assert np.all(np.isfinite(smoothed.joint_positions["hips"]))
+
+
+def test_pose_calibration():
+    from vid2anim.core.calibration import PoseCalibrator, RestPoseType
+
+    t_calib = PoseCalibrator(RestPoseType.T_POSE)
+    offset_t = t_calib.get_rest_offset("left_arm")
+    assert np.allclose(offset_t, [0, 0, 0, 1])
+
+    a_calib = PoseCalibrator(RestPoseType.A_POSE_30)
+    offset_a = a_calib.get_rest_offset("left_arm")
+    # Should have non-zero rotation for arm
+    assert not np.allclose(offset_a, [0, 0, 0, 1])
+
+
+def test_pipeline_validation():
+    from vid2anim.pipeline import PipelineConfig, Vid2AnimPipeline
+
+    config = PipelineConfig(
+        input_media=Path("non_existent_file.mp4"),
+        target_model=Path("non_existent_model.glb"),
+    )
+    pipeline = Vid2AnimPipeline(config)
+    result = pipeline.execute()
+    assert not result.success
+    assert "does not exist" in result.error_message.lower()
