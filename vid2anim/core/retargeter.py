@@ -10,7 +10,7 @@ VRM, Rigify, Unreal, Daz3D, Sketchfab) without bone flipping, twisting, or defor
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import numpy as np
@@ -52,6 +52,7 @@ class RetargetedAnimation:
     timestamps: np.ndarray  # (F,) in seconds
     bone_rotations: Dict[str, np.ndarray]  # bone_name -> (F, 4) quaternions [x, y, z, w]
     root_translations: np.ndarray  # (F, 3) translations [x, y, z]
+    node_translations: Dict[str, np.ndarray] = field(default_factory=dict)
 
 
 class UniversalRetargeter:
@@ -86,7 +87,7 @@ class UniversalRetargeter:
                 gltf_data, _ = parse_glb_json(Path(model_path))
                 solver = UniversalTransferSolver(gltf_data, rig)
                 bone_rotations, root_translations = solver.transfer_motion(canonical_motion, raw_motion=motion)
-
+                node_translations = getattr(solver, "node_translations", {})
 
                 self.reporter.report("RETARGET", 1.0, "Kinematic basis retargeting complete.")
                 return RetargetedAnimation(
@@ -96,6 +97,7 @@ class UniversalRetargeter:
                     timestamps=motion.timestamps,
                     bone_rotations=bone_rotations,
                     root_translations=root_translations,
+                    node_translations=node_translations,
                 )
             except Exception as e:
                 # If GLB parsing fails, fallback to direct vector solver below

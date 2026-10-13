@@ -191,4 +191,5 @@ class TemporalMotionSmoother:
             timestamps=anim.timestamps,
             bone_rotations=smoothed_rotations,
             root_translations=anim.root_translations,
+            node_translations=getattr(anim, "node_translations", {}),
         )

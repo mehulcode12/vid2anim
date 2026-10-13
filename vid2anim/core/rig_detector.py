@@ -49,7 +49,7 @@ CANONICAL_JOINTS = (
 
 # Known aliases across 3D ecosystems (Mixamo, VRM, Rigify, Unreal, Reallusion Character Creator, Daz3D)
 JOINT_ALIASES: Dict[str, List[str]] = {
-    "hips": ["mixamorig:hips", "mixamorig_hips", "hips", "pelvis", "root", "hip", "b_hips", "cc_base_pelvis", "cc_base_hip"],
+    "hips": ["mixamorig:hips", "mixamorig_hips", "hips", "pelvis", "hip", "c_hip", "chip", "b_hips", "cc_base_pelvis", "cc_base_hip", "root"],
     "spine": ["mixamorig:spine", "mixamorig_spine", "spine", "spine01", "spine_01", "spine1", "def-spine", "b_spine", "cc_base_spine01"],
     "chest": ["mixamorig:spine2", "mixamorig:spine1", "chest", "upperchest", "spine02", "spine_02", "spine_03", "spine2", "def-chest", "b_chest", "cc_base_spine02"],
     "neck": ["mixamorig:neck", "mixamorig_neck", "neck", "neck_01", "neck01", "def-neck", "b_neck", "cc_base_neck", "cc_base_necktwist01"],
@@ -288,10 +288,10 @@ class UniversalBoneMatcher:
     CANONICAL_DEFS: Dict[str, Dict[str, Any]] = {
         "hips": {
             "side": "center",
-            "high_keys": {"pelvis", "hip", "hips", "root", "下半身", "センター", "腰"},
-            "keys": {"c_root"},
-            "low_keys": {"rootjoint", "main"},
-            "bad": {"thigh", "leg", "toe", "foot", "arm", "spine", "head", "waist"},
+            "high_keys": {"pelvis", "hip", "hips", "c_hip", "chip", "下半身", "腰", "b_hips"},
+            "keys": {"c_root", "root", "waist"},
+            "low_keys": {"main"},
+            "bad": {"thigh", "leg", "toe", "foot", "arm", "spine", "head", "rootjoint", "rootnode", "scalecompensation", "jaw", "booster"},
         },
         "spine": {
             "side": "center",
@@ -534,8 +534,8 @@ class UniversalBoneMatcher:
                     if bad in toks:
                         score -= 80.0
 
-                # Penalties for auxiliary / twist / helper bones
-                for aux in ["twist", "share", "sharebone", "nub", "end", "scale", "ctrl", "ik", "socket", "pole"]:
+                # Penalties for auxiliary / twist / helper bones / container nodes
+                for aux in ["twist", "share", "sharebone", "nub", "end", "scale", "scalecompensation", "ctrl", "ik", "socket", "pole", "rootjoint", "rootnode"]:
                     if aux in toks:
                         score -= 40.0
 

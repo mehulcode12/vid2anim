@@ -162,13 +162,20 @@ class GLBAnimationExporter:
                 },
             })
 
-        # Add root hip translation track if mapped
+        # Add translation tracks for hips and any animated helper/IK nodes
+        node_translations: Dict[str, np.ndarray] = dict(getattr(animation, "node_translations", {}))
         root_bone = rig_info.bone_mapping.get("hips")
-        if root_bone and root_bone in node_name_to_idx and len(animation.root_translations) > 0:
-            root_node_idx = node_name_to_idx[root_bone]
-            root_node = gltf_data["nodes"][root_node_idx]
-            bind_trans = np.array(root_node.get("translation", [0.0, 0.0, 0.0]), dtype=np.float32)
-            final_trans = animation.root_translations + bind_trans
+        if not node_translations and root_bone and len(animation.root_translations) > 0:
+            node_translations[root_bone] = animation.root_translations
+
+        for trans_bone_name, trans_array in node_translations.items():
+            if trans_bone_name not in node_name_to_idx or len(trans_array) == 0:
+                continue
+
+            trans_node_idx = node_name_to_idx[trans_bone_name]
+            target_node = gltf_data["nodes"][trans_node_idx]
+            bind_trans = np.array(target_node.get("translation", [0.0, 0.0, 0.0]), dtype=np.float32)
+            final_trans = trans_array + bind_trans
             trans_bytes = final_trans.astype(np.float32).tobytes()
             trans_offset = len(bin_appended)
             bin_appended.extend(trans_bytes)
@@ -200,7 +207,7 @@ class GLBAnimationExporter:
             channels.append({
                 "sampler": trans_sampler_idx,
                 "target": {
-                    "node": root_node_idx,
+                    "node": trans_node_idx,
                     "path": "translation",
                 },
             })

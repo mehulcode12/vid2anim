@@ -313,6 +313,30 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         const model = gltf.scene;
         scene.add(model);
 
+        // Auto-frame camera to fit character bounding box regardless of metric/centimetric scale
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0.001) {
+          const fov = camera.fov * (Math.PI / 180);
+          let dist = Math.abs(maxDim / (2 * Math.tan(fov / 2))) * 1.4;
+          camera.position.set(center.x, center.y + size.y * 0.1, center.z + dist);
+          camera.near = Math.max(0.01, maxDim / 100);
+          camera.far = Math.max(100, maxDim * 50);
+          camera.updateProjectionMatrix();
+          controls.target.copy(center);
+          controls.maxDistance = maxDim * 10;
+          controls.update();
+
+          // Reposition ground grid helper to ground level
+          const existingGrid = scene.children.find(c => c.isGridHelper);
+          if (existingGrid) scene.remove(existingGrid);
+          const grid = new THREE.GridHelper(maxDim * 3, 20, 0x30363d, 0x161b22);
+          grid.position.y = box.min.y;
+          scene.add(grid);
+        }
+
         currentGltfClips = gltf.animations || [];
         if (currentGltfClips.length > 0) {
           mixer = new THREE.AnimationMixer(model);
@@ -356,9 +380,22 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     function resetCamera() {
-      camera.position.set(0, 1.4, 3.5);
-      controls.target.set(0, 1.0, 0);
-      controls.update();
+      const existingModel = scene.children.find(c => c.isGroup);
+      if (existingModel) {
+        const box = new THREE.Box3().setFromObject(existingModel);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        let dist = Math.abs(maxDim / (2 * Math.tan(fov / 2))) * 1.4;
+        camera.position.set(center.x, center.y + size.y * 0.1, center.z + dist);
+        controls.target.copy(center);
+        controls.update();
+      } else {
+        camera.position.set(0, 1.4, 3.5);
+        controls.target.set(0, 1.0, 0);
+        controls.update();
+      }
     }
 
     // Diagnostics & File Selection

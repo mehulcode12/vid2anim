@@ -218,8 +218,11 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["left_forearm"] = r_l_fa
         r_world["left_forearm"] = r_world["left_arm"] @ r_l_fa
 
-        r_anim["left_hand"] = np.eye(3, dtype=np.float64)
-        r_world["left_hand"] = r_world["left_forearm"]
+        v_l_hand = p_l_wrist - p_l_elbow
+        d_l_hand_in_anim = r_world["left_forearm"].T @ normalize(v_l_hand, np.array([1.0, 0.0, 0.0]))
+        r_l_hand = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_hand"], d_l_hand_in_anim)
+        r_anim["left_hand"] = r_l_hand
+        r_world["left_hand"] = r_world["left_forearm"] @ r_l_hand
 
         # 4. Right Arm Chain (chest -> right_shoulder -> right_arm -> right_forearm -> right_hand)
         p_r_elbow = get_pos("right_forearm", f)
@@ -248,8 +251,11 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["right_forearm"] = r_r_fa
         r_world["right_forearm"] = r_world["right_arm"] @ r_r_fa
 
-        r_anim["right_hand"] = np.eye(3, dtype=np.float64)
-        r_world["right_hand"] = r_world["right_forearm"]
+        v_r_hand = p_r_wrist - p_r_elbow
+        d_r_hand_in_anim = r_world["right_forearm"].T @ normalize(v_r_hand, np.array([-1.0, 0.0, 0.0]))
+        r_r_hand = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_hand"], d_r_hand_in_anim)
+        r_anim["right_hand"] = r_r_hand
+        r_world["right_hand"] = r_world["right_forearm"] @ r_r_hand
 
         # 5. Left Leg Chain (hips -> left_upleg -> left_leg -> left_foot)
         p_l_knee = get_pos("left_leg", f)
@@ -269,8 +275,11 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["left_leg"] = r_l_shin
         r_world["left_leg"] = r_world["left_upleg"] @ r_l_shin
 
-        r_anim["left_foot"] = np.eye(3, dtype=np.float64)
-        r_world["left_foot"] = r_world["left_leg"]
+        v_l_foot = p_l_ankle - p_l_knee
+        d_l_foot_in_anim = r_world["left_leg"].T @ normalize(v_l_foot, np.array([0.0, -1.0, 0.0]))
+        r_l_foot = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_foot"], d_l_foot_in_anim)
+        r_anim["left_foot"] = r_l_foot
+        r_world["left_foot"] = r_world["left_leg"] @ r_l_foot
 
         # 6. Right Leg Chain (hips -> right_upleg -> right_leg -> right_foot)
         p_r_knee = get_pos("right_leg", f)
@@ -290,8 +299,11 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["right_leg"] = r_r_shin
         r_world["right_leg"] = r_world["right_upleg"] @ r_r_shin
 
-        r_anim["right_foot"] = np.eye(3, dtype=np.float64)
-        r_world["right_foot"] = r_world["right_leg"]
+        v_r_foot = p_r_ankle - p_r_knee
+        d_r_foot_in_anim = r_world["right_leg"].T @ normalize(v_r_foot, np.array([0.0, -1.0, 0.0]))
+        r_r_foot = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_foot"], d_r_foot_in_anim)
+        r_anim["right_foot"] = r_r_foot
+        r_world["right_foot"] = r_world["right_leg"] @ r_r_foot
 
         # Commit frame
         r_anim_frames.append(r_anim)

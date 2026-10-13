@@ -214,7 +214,10 @@ class MotionExtractor:
             f"Processing video ({frames_to_process} frames @ {fps:.1f} FPS) on {self.device.upper()}",
         )
 
-        all_frames_joints: Dict[str, List[np.ndarray]] = {j: [] for j in CANONICAL_JOINTS}
+        from .rig_detector import CANONICAL_JOINTS
+        AUXILIARY_LANDMARKS = ("left_toe", "right_toe", "left_fingers", "right_fingers")
+        tracked_joints = list(CANONICAL_JOINTS) + list(AUXILIARY_LANDMARKS)
+        all_frames_joints: Dict[str, List[np.ndarray]] = {j: [] for j in tracked_joints}
         root_trans_list: List[np.ndarray] = []
         timestamps: List[float] = []
 
@@ -271,8 +274,9 @@ class MotionExtractor:
                     frame_joints = self._estimate_frame_3d_pose(frame)
                     last_valid_joints = frame_joints
 
-                for j_name in CANONICAL_JOINTS:
-                    all_frames_joints[j_name].append(frame_joints[j_name])
+                for j_name in tracked_joints:
+                    if j_name in frame_joints:
+                        all_frames_joints[j_name].append(frame_joints[j_name])
 
                 root_trans_list.append(frame_joints["hips"])
                 frame_idx += 1
@@ -373,12 +377,16 @@ class MotionExtractor:
             "right_arm": pt(12),
             "right_forearm": pt(14),
             "right_hand": pt(16),
+            "left_fingers": pt(19),
+            "right_fingers": pt(20),
             "left_upleg": l_hip,
             "left_leg": pt(25),
             "left_foot": pt(27),
+            "left_toe": pt(31),
             "right_upleg": r_hip,
             "right_leg": pt(26),
             "right_foot": pt(28),
+            "right_toe": pt(32),
         }
 
     def _generate_default_human_frame(self) -> Dict[str, np.ndarray]:
@@ -393,14 +401,18 @@ class MotionExtractor:
             "left_arm": np.array([0.35, 1.45, 0.0], dtype=np.float32),
             "left_forearm": np.array([0.60, 1.45, 0.0], dtype=np.float32),
             "left_hand": np.array([0.80, 1.45, 0.0], dtype=np.float32),
+            "left_fingers": np.array([0.90, 1.45, 0.0], dtype=np.float32),
             "right_shoulder": np.array([-0.15, 1.45, 0.0], dtype=np.float32),
             "right_arm": np.array([-0.35, 1.45, 0.0], dtype=np.float32),
             "right_forearm": np.array([-0.60, 1.45, 0.0], dtype=np.float32),
             "right_hand": np.array([-0.80, 1.45, 0.0], dtype=np.float32),
+            "right_fingers": np.array([-0.90, 1.45, 0.0], dtype=np.float32),
             "left_upleg": np.array([0.15, 0.95, 0.0], dtype=np.float32),
             "left_leg": np.array([0.15, 0.50, 0.0], dtype=np.float32),
-            "left_foot": np.array([0.15, 0.05, 0.1], dtype=np.float32),
+            "left_foot": np.array([0.15, 0.05, 0.0], dtype=np.float32),
+            "left_toe": np.array([0.15, 0.00, 0.15], dtype=np.float32),
             "right_upleg": np.array([-0.15, 0.95, 0.0], dtype=np.float32),
             "right_leg": np.array([-0.15, 0.50, 0.0], dtype=np.float32),
-            "right_foot": np.array([-0.15, 0.05, 0.1], dtype=np.float32),
+            "right_foot": np.array([-0.15, 0.05, 0.0], dtype=np.float32),
+            "right_toe": np.array([-0.15, 0.00, 0.15], dtype=np.float32),
         }
