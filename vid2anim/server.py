@@ -37,7 +37,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>vid2anim - 3D Character Motion Studio</title>
+  <title>vid2anim</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -46,40 +46,28 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <style>
     :root {
-      --bg-dark: #07090e;
-      --bg-panel: #0b0f19;
-      --bg-panel-trans: rgba(11, 15, 25, 0.85);
-      --bg-card: #121829;
-      --bg-card-hover: #182138;
+      --bg-dark: #0a0c10;
+      --bg-panel: #11141a;
+      --bg-card: #161a22;
+      --bg-card-hover: #1c212b;
       --border: rgba(255, 255, 255, 0.08);
-      --border-accent: rgba(99, 102, 241, 0.4);
-      --accent: #6366f1;
-      --accent-hover: #4f46e5;
-      --accent-glow: rgba(99, 102, 241, 0.35);
-      --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
-      --cyan: #06b6d4;
-      --cyan-glow: rgba(6, 182, 212, 0.3);
+      --border-hover: rgba(255, 255, 255, 0.16);
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
       --emerald: #10b981;
-      --emerald-glow: rgba(16, 185, 129, 0.25);
-      --amber: #f59e0b;
       --text: #cbd5e1;
-      --text-bright: #ffffff;
+      --text-bright: #f8fafc;
       --text-dim: #64748b;
-      --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.4);
-      --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.25);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: var(--bg-dark); }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 999px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 
     body {
-      font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg-dark);
-      background-image: 
-        radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
-        radial-gradient(circle at 85% 90%, rgba(236, 72, 153, 0.08) 0%, transparent 40%);
       color: var(--text);
       display: flex;
       flex-direction: column;
@@ -90,54 +78,61 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     /* Top Navigation Header */
     header {
-      padding: 10px 24px;
+      height: 48px;
+      padding: 0 16px;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: var(--bg-panel-trans);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: var(--bg-panel);
       z-index: 20;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .brand-logo {
-      font-size: 1.35rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: var(--accent-grad);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    .brand-pill {
-      font-size: 0.7rem;
+      font-size: 1rem;
       font-weight: 700;
-      padding: 3px 9px;
-      border-radius: 999px;
-      background: rgba(99, 102, 241, 0.15);
-      color: #a5b4fc;
-      border: 1px solid rgba(99, 102, 241, 0.35);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+      color: var(--text-bright);
+      letter-spacing: -0.3px;
+    }
+    .brand-logo svg {
+      color: var(--accent);
+    }
+    .version-tag {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
     }
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
-    .github-link {
-      padding: 5px 12px;
-      border-radius: 8px;
-      font-size: 0.78rem;
+    .device-pill {
+      font-size: 0.7rem;
       font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .header-link {
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      font-weight: 500;
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border);
       color: var(--text);
@@ -145,380 +140,263 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       align-items: center;
       gap: 6px;
       text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
-    .github-link:hover {
+    .header-link:hover {
       background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
-      color: #ffffff;
-      transform: translateY(-1px);
-    }
-    .badge {
-      font-size: 0.74rem;
-      padding: 5px 11px;
-      border-radius: 999px;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      backdrop-filter: blur(8px);
-    }
-    .badge-device {
-      background: rgba(16, 185, 129, 0.12);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-    .badge-sync {
-      background: rgba(6, 182, 212, 0.12);
-      color: #38bdf8;
-      border: 1px solid rgba(6, 182, 212, 0.3);
-    }
-    .badge-sync.active {
-      background: rgba(16, 185, 129, 0.15);
-      color: #10b981;
-      border-color: rgba(16, 185, 129, 0.4);
-    }
-    .badge-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-      box-shadow: 0 0 8px currentColor;
+      color: var(--text-bright);
+      border-color: var(--border-hover);
     }
 
     /* Main Container */
     .main-container {
       display: grid;
-      grid-template-columns: 370px 1fr;
+      grid-template-columns: 310px 1fr;
       flex: 1;
       overflow: hidden;
     }
 
-    /* Sidebar Studio Panel */
+    /* Sidebar Tools Panel */
     .sidebar {
-      padding: 18px 20px 24px;
+      padding: 14px;
       border-right: 1px solid var(--border);
-      background: var(--bg-panel-trans);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: var(--bg-panel);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       z-index: 10;
     }
 
     .section-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: 7px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      box-shadow: var(--shadow-card);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .section-card:hover {
-      border-color: rgba(255, 255, 255, 0.14);
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .section-title {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--text-bright);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      display: flex;
-      align-items: center;
       gap: 8px;
     }
-    .section-number {
-      font-size: 0.7rem;
-      font-weight: 800;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: rgba(99, 102, 241, 0.2);
-      color: #a5b4fc;
-      border: 1px solid rgba(99, 102, 241, 0.35);
-    }
-    .section-tag {
-      font-size: 0.7rem;
-      font-weight: 500;
+
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 600;
       color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    /* Upload Zones */
+    /* Upload Dropzones */
     .upload-zone {
-      border: 1.5px dashed var(--border);
-      border-radius: 10px;
-      padding: 16px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      padding: 14px 10px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       background: rgba(255, 255, 255, 0.015);
-      position: relative;
+      transition: all 0.15s;
     }
     .upload-zone:hover, .upload-zone.dragover {
       border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.08);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+      background: rgba(79, 70, 229, 0.05);
     }
     .upload-zone svg {
-      stroke: #818cf8;
-      margin-bottom: 6px;
-      filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.3));
+      stroke: var(--text-dim);
+      margin-bottom: 4px;
     }
-    .upload-zone p { font-size: 0.82rem; color: var(--text); font-weight: 500; }
-    .upload-zone span { font-size: 0.72rem; color: var(--text-dim); }
+    .upload-zone:hover svg {
+      stroke: #818cf8;
+    }
+    .upload-zone p { font-size: 0.78rem; color: var(--text); font-weight: 500; }
+    .upload-zone span { font-size: 0.68rem; color: var(--text-dim); }
 
     .file-pill {
       display: none;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: rgba(99, 102, 241, 0.1);
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      font-size: 0.78rem;
-      color: #cbd5e1;
-      margin-top: 4px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: rgba(79, 70, 229, 0.08);
+      border: 1px solid rgba(79, 70, 229, 0.25);
+      font-size: 0.74rem;
     }
     .file-pill-info {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
     .file-pill-name {
-      font-weight: 600;
-      color: #ffffff;
+      font-weight: 500;
+      color: var(--text-bright);
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .file-pill-btn {
       padding: 2px 6px;
       border-radius: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      border: none;
-      color: #94a3b8;
-      font-size: 0.7rem;
-      cursor: pointer;
-    }
-    .file-pill-btn:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-    /* Dual-Engine AI Cards */
-    .engine-cards {
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-    }
-    .engine-card {
-      padding: 11px 13px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1.5px solid var(--border);
-      cursor: pointer;
-      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-    }
-    .engine-card:hover {
-      border-color: rgba(99, 102, 241, 0.45);
-      background: var(--bg-card-hover);
-      transform: translateY(-1px);
-    }
-    .engine-card.active {
-      border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.12);
-      box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
-    }
-    .engine-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 5px;
-    }
-    .engine-title {
-      font-size: 0.86rem;
-      font-weight: 700;
-      color: var(--text-bright);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .engine-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--text-dim);
-      transition: all 0.2s;
-    }
-    .engine-card.active .engine-dot {
-      background: #818cf8;
-      box-shadow: 0 0 8px #6366f1;
-    }
-    .engine-tag {
-      font-size: 0.68rem;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-    .tag-fast {
-      background: rgba(16, 185, 129, 0.15);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.35);
-    }
-    .tag-precision {
-      background: rgba(139, 92, 246, 0.18);
-      color: #c084fc;
-      border: 1px solid rgba(139, 92, 246, 0.45);
-    }
-    .engine-desc {
-      font-size: 0.73rem;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.1);
       color: var(--text-dim);
-      line-height: 1.4;
+      font-size: 0.68rem;
+      cursor: pointer;
     }
+    .file-pill-btn:hover { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
 
-    /* Settings & Controls */
-    select, button {
-      font-family: inherit;
-      padding: 10px 14px;
-      border-radius: 8px;
+    /* Segmented Control for Engine */
+    .segmented-control {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #0d1016;
       border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .segment-btn {
+      padding: 7px 8px;
+      border-radius: 4px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .segment-btn:hover {
+      color: var(--text-bright);
+    }
+    .segment-btn.active {
       background: var(--bg-card);
       color: var(--text-bright);
-      font-size: 0.84rem;
-      cursor: pointer;
-      transition: all 0.2s;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    select:focus, button:focus {
+
+    /* Form Controls */
+    select, button {
+      font-family: inherit;
+    }
+    select {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #0d1016;
+      color: var(--text-bright);
+      font-size: 0.78rem;
+      cursor: pointer;
       outline: none;
+    }
+    select:focus {
       border-color: var(--accent);
     }
 
-    /* Primary Action Button */
+    /* Action Buttons */
     button.primary {
-      background: var(--accent-grad);
+      background: var(--accent);
       border: none;
-      font-weight: 700;
-      font-size: 0.94rem;
-      padding: 13px;
-      border-radius: 10px;
-      box-shadow: 0 4px 20px var(--accent-glow);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.84rem;
+      padding: 10px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      position: relative;
-      overflow: hidden;
-      letter-spacing: 0.2px;
+      gap: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
     }
     button.primary:hover:not(:disabled) {
-      filter: brightness(1.1);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(99, 102, 241, 0.45);
+      background: var(--accent-hover);
     }
-    button:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* Interactive Stepper Pipeline Status */
+    /* Status & Progress */
     .status-card {
-      padding: 14px;
-      border-radius: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
       background: var(--bg-card);
-      border: 1px solid var(--border-accent);
-      font-size: 0.82rem;
-      box-shadow: var(--shadow-glow);
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
     .status-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-bright);
+      font-size: 0.76rem;
     }
     .pipeline-stepper {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
-      margin: 4px 0;
+      gap: 3px;
     }
     .step-pill {
       font-size: 0.65rem;
-      font-weight: 600;
-      padding: 4px 2px;
+      font-weight: 500;
+      padding: 3px 2px;
       text-align: center;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.04);
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.03);
       color: var(--text-dim);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      transition: all 0.25s;
+      border: 1px solid var(--border);
     }
     .step-pill.active {
-      background: rgba(99, 102, 241, 0.25);
+      background: rgba(79, 70, 229, 0.15);
       color: #a5b4fc;
       border-color: var(--accent);
-      box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
     }
     .step-pill.done {
-      background: rgba(16, 185, 129, 0.15);
+      background: rgba(16, 185, 129, 0.1);
       color: #34d399;
-      border-color: rgba(16, 185, 129, 0.35);
+      border-color: rgba(16, 185, 129, 0.3);
     }
     .progress-bar-bg {
-      height: 6px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 999px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 2px;
       overflow: hidden;
-      position: relative;
     }
     .progress-bar-fill {
       height: 100%;
-      background: var(--accent-grad);
+      background: var(--accent);
       width: 0%;
-      transition: width 0.3s ease;
-      box-shadow: 0 0 10px var(--accent);
+      transition: width 0.25s ease;
     }
     .status-detail {
-      font-size: 0.74rem;
-      color: #94a3b8;
+      font-size: 0.72rem;
+      color: var(--text-dim);
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
     .download-btn {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.45);
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.35);
       color: #34d399;
-      font-weight: 700;
-      font-size: 0.88rem;
-      padding: 12px;
-      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      padding: 9px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
-      transition: all 0.2s;
+      gap: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
     }
     .download-btn:hover {
-      background: rgba(16, 185, 129, 0.25);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.2);
     }
 
     /* Stage Area */
@@ -527,15 +405,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       flex-direction: column;
       height: 100%;
       overflow: hidden;
-      background: #04060a;
+      background: #080a0d;
       position: relative;
     }
     .stage-header {
-      padding: 8px 16px;
+      padding: 6px 14px;
       border-bottom: 1px solid var(--border);
-      background: var(--bg-panel-trans);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: var(--bg-panel);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -543,30 +419,30 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     .view-mode-tabs {
       display: flex;
-      background: var(--bg-card);
-      padding: 3px;
-      border-radius: 8px;
+      background: #0d1016;
+      padding: 2px;
+      border-radius: 5px;
       border: 1px solid var(--border);
-      gap: 2px;
+      gap: 1px;
     }
     .view-tab {
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 0.78rem;
-      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.74rem;
+      font-weight: 500;
       border: none;
       background: transparent;
       color: var(--text-dim);
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
+      gap: 5px;
+      transition: all 0.15s;
     }
     .view-tab.active {
-      background: var(--accent);
-      color: #ffffff;
-      box-shadow: 0 2px 10px var(--accent-glow);
+      background: var(--bg-card);
+      color: var(--text-bright);
+      font-weight: 600;
     }
     .stage-tools {
       display: flex;
@@ -603,36 +479,33 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       border-right: 1px solid var(--border);
-      background: #030509;
+      background: #07090c;
     }
     .viewport-card:last-child {
       border-right: none;
     }
     .viewport-tag {
       position: absolute;
-      top: 12px;
-      left: 12px;
+      top: 10px;
+      left: 10px;
       z-index: 4;
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(11, 15, 25, 0.85);
-      backdrop-filter: blur(8px);
-      padding: 5px 11px;
-      border-radius: 6px;
+      gap: 6px;
+      background: rgba(17, 20, 26, 0.85);
+      padding: 4px 9px;
+      border-radius: 5px;
       border: 1px solid var(--border);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: #cbd5e1;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text);
     }
     .viewport-meta {
-      font-size: 0.68rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      color: #94a3b8;
+      font-size: 0.66rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dim);
       font-family: 'JetBrains Mono', monospace;
     }
 
@@ -640,7 +513,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     #videoViewport {
       align-items: center;
       justify-content: center;
-      background: #020307;
+      background: #05070a;
     }
     #sourceVideo {
       width: 100%;
@@ -658,7 +531,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     /* 3D Viewport */
     #modelViewport {
-      background: radial-gradient(circle at center, #0e1629 0%, #040711 100%);
+      background: #080a0e;
     }
     #viewport3d {
       width: 100%;
@@ -667,16 +540,15 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     .viewport-hints {
       position: absolute;
-      bottom: 12px;
-      right: 12px;
+      bottom: 10px;
+      right: 10px;
       z-index: 4;
-      font-size: 0.68rem;
-      color: rgba(255, 255, 255, 0.4);
-      background: rgba(7, 9, 14, 0.75);
-      backdrop-filter: blur(4px);
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.66rem;
+      color: rgba(255, 255, 255, 0.35);
+      background: rgba(10, 12, 16, 0.8);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
       pointer-events: none;
     }
 
@@ -690,45 +562,45 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       justify-content: center;
       text-align: center;
       color: var(--text-dim);
-      padding: 24px;
+      padding: 20px;
       pointer-events: none;
       z-index: 2;
     }
     .viewport-empty svg {
-      stroke: rgba(255, 255, 255, 0.16);
-      margin-bottom: 12px;
+      stroke: rgba(255, 255, 255, 0.12);
+      margin-bottom: 10px;
     }
     .viewport-empty h4 {
-      font-size: 0.98rem;
-      color: var(--text-bright);
-      margin-bottom: 4px;
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-bottom: 3px;
+      font-weight: 500;
     }
     .viewport-empty p {
-      font-size: 0.78rem;
-      max-width: 240px;
+      font-size: 0.74rem;
+      max-width: 220px;
       line-height: 1.4;
     }
 
-    /* Floating Viewport HUD buttons */
+    /* Viewport HUD buttons */
     .viewport-hud {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       z-index: 5;
       display: flex;
       align-items: center;
-      gap: 6px;
-      background: rgba(11, 15, 25, 0.8);
-      backdrop-filter: blur(8px);
-      padding: 4px;
-      border-radius: 8px;
+      gap: 4px;
+      background: rgba(17, 20, 26, 0.85);
+      padding: 3px;
+      border-radius: 6px;
       border: 1px solid var(--border);
     }
     .hud-btn {
       padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 600;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 500;
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-dim);
@@ -736,61 +608,61 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       align-items: center;
       gap: 4px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
+    }
+    .hud-btn svg {
+      width: 12px;
+      height: 12px;
     }
     .hud-btn:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-bright);
+      background: rgba(255, 255, 255, 0.04);
     }
     .hud-btn.active {
-      color: #a5b4fc;
-      background: rgba(99, 102, 241, 0.2);
-      border-color: rgba(99, 102, 241, 0.4);
+      color: #ffffff;
+      background: var(--bg-card);
+      border-color: rgba(255, 255, 255, 0.12);
     }
 
-    /* Bottom Docked Playback Bar */
+    /* Bottom Playback Bar */
     .sync-controller {
-      background: var(--bg-panel-trans);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: var(--bg-panel);
       border-top: 1px solid var(--border);
-      padding: 10px 24px 14px;
+      padding: 8px 16px 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       z-index: 10;
     }
     .timeline-container {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       position: relative;
     }
     .time-slider {
       flex: 1;
       -webkit-appearance: none;
       appearance: none;
-      height: 6px;
-      border-radius: 999px;
-      background: #1e293b;
+      height: 4px;
+      border-radius: 2px;
+      background: #1e2430;
       outline: none;
       cursor: pointer;
-      position: relative;
     }
     .time-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 15px;
-      height: 15px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
-      background: #818cf8;
-      box-shadow: 0 0 12px #6366f1;
+      background: #ffffff;
       cursor: pointer;
-      border: 2px solid #ffffff;
-      transition: transform 0.15s;
+      border: 2px solid var(--accent);
+      transition: transform 0.1s;
     }
     .time-slider::-webkit-slider-thumb:hover {
-      transform: scale(1.3);
+      transform: scale(1.2);
     }
     .controls-row {
       display: flex;
@@ -800,54 +672,45 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .ctrl-group {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .ctrl-btn {
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      padding: 5px 9px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      font-weight: 500;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      color: var(--text-bright);
+      color: var(--text);
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
     .ctrl-btn:hover {
       background: var(--bg-card-hover);
-      border-color: rgba(255, 255, 255, 0.15);
-      transform: translateY(-1px);
+      color: var(--text-bright);
+      border-color: var(--border-hover);
     }
     .ctrl-btn.play-btn {
       background: var(--accent);
       border-color: var(--accent);
-      padding: 6px 18px;
-      font-weight: 700;
-      box-shadow: 0 0 12px var(--accent-glow);
+      color: #ffffff;
+      padding: 5px 14px;
+      font-weight: 600;
     }
     .ctrl-btn.play-btn:hover {
       background: var(--accent-hover);
-      box-shadow: 0 0 18px var(--accent-glow);
     }
     .ctrl-btn.active {
-      background: rgba(99, 102, 241, 0.2);
-      border-color: var(--accent);
-      color: #a5b4fc;
-    }
-    .ctrl-key {
-      font-size: 0.65rem;
-      padding: 1px 4px;
-      border-radius: 3px;
-      background: rgba(255, 255, 255, 0.08);
-      color: #94a3b8;
-      margin-left: 2px;
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--bg-card-hover);
     }
     .time-display {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
+      font-size: 0.76rem;
       color: var(--text);
       display: flex;
       align-items: center;
@@ -855,11 +718,31 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       margin-left: 6px;
     }
     .frame-pill {
-      font-size: 0.72rem;
-      padding: 3px 7px;
+      font-size: 0.7rem;
+      padding: 2px 6px;
       border-radius: 4px;
-      background: rgba(255, 255, 255, 0.05);
-      color: #94a3b8;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-dim);
+    }
+    .speed-group {
+      display: flex;
+      gap: 1px;
+      background: #0d1016;
+      padding: 2px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+    .speed-group .ctrl-btn {
+      padding: 2px 6px;
+      font-size: 0.7rem;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+    }
+    .speed-group .ctrl-btn.active {
+      background: var(--bg-card);
+      color: var(--text-bright);
+      font-weight: 600;
     }
   </style>
 </head>
@@ -867,142 +750,98 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <header>
     <div class="brand">
       <div class="brand-logo">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         vid2anim
       </div>
-      <div class="brand-pill">Open Source Studio</div>
+      <span class="version-tag">v0.1.0</span>
     </div>
     <div class="header-actions">
-      <a class="github-link" href="https://github.com/mehulcode12/vid2anim" target="_blank" rel="noopener noreferrer" title="View Source on GitHub">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      <div id="deviceBadge" class="device-pill">CPU</div>
+      <a class="header-link" href="https://github.com/mehulcode12/vid2anim" target="_blank" rel="noopener noreferrer" title="View Source on GitHub">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
         <span>GitHub</span>
       </a>
-      <div id="syncBadge" class="badge badge-sync active">
-        <span class="badge-dot"></span>
-        <span id="syncText">Dual-Viewport Synced</span>
-      </div>
-      <div id="deviceBadge" class="badge badge-device">Loading device...</div>
+      <div id="syncBadge" style="display:none"><span id="syncText"></span></div>
     </div>
   </header>
 
   <div class="main-container">
     <div class="sidebar">
-      <!-- Section 1: Media Upload -->
+      <!-- Section: Media Upload -->
       <div class="section-card">
-        <div class="section-header">
-          <div class="section-title">
-            <span class="section-number">01</span> Source Footage
-          </div>
-          <span class="section-tag">Max 30s</span>
-        </div>
+        <div class="section-title">Source Media</div>
         <div class="upload-zone" id="mediaZone" onclick="document.getElementById('mediaInput').click()">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          <p>Drop Video or Photo</p>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <p>Drop video or photo</p>
           <span>MP4, MOV, WEBM, JPG, PNG</span>
         </div>
         <div id="mediaPill" class="file-pill">
           <div class="file-pill-info">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             <span id="mediaName" class="file-pill-name"></span>
           </div>
-          <button class="file-pill-btn" onclick="clearMedia(event)">Clear</button>
+          <button class="file-pill-btn" onclick="clearMedia(event)">Remove</button>
         </div>
         <input type="file" id="mediaInput" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png" style="display:none">
       </div>
 
-      <!-- Section 2: 3D Model Upload -->
+      <!-- Section: 3D Model Upload -->
       <div class="section-card">
-        <div class="section-header">
-          <div class="section-title">
-            <span class="section-number">02</span> Target 3D Character
-          </div>
-          <span class="section-tag">Rigged Mesh</span>
-        </div>
+        <div class="section-title">Target Character</div>
         <div class="upload-zone" id="modelZone" onclick="document.getElementById('modelInput').click()">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          <p>Drop 3D Character Model</p>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <p>Drop 3D character</p>
           <span>GLB, GLTF, FBX, OBJ</span>
         </div>
         <div id="modelPill" class="file-pill">
           <div class="file-pill-info">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
             <span id="modelName" class="file-pill-name"></span>
           </div>
-          <button class="file-pill-btn" onclick="clearModel(event)">Clear</button>
+          <button class="file-pill-btn" onclick="clearModel(event)">Remove</button>
         </div>
         <input type="file" id="modelInput" accept=".glb,.gltf,.fbx,.obj" style="display:none">
       </div>
 
-      <!-- Section 3: Dual-Engine Model Selector -->
+      <!-- Section: Tracking Engine -->
       <div class="section-card">
-        <div class="section-header">
-          <div class="section-title">
-            <span class="section-number">03</span> Tracking AI Model
-          </div>
-          <span class="section-tag">Dual-Engine</span>
-        </div>
-        <div class="engine-cards">
-          <div class="engine-card active" id="engineCardMediapipe" onclick="selectEngine('mediapipe')">
-            <div class="engine-card-header">
-              <div class="engine-title">
-                <span class="engine-dot"></span>
-                MediaPipe Pose
-              </div>
-              <span class="engine-tag tag-fast">Fast CPU (~30 FPS)</span>
-            </div>
-            <p class="engine-desc">Lightweight real-time tracking. Instant startup, low memory, robust full-body kinematics.</p>
-          </div>
-          <div class="engine-card" id="engineCardDwpose" onclick="selectEngine('dwpose')">
-            <div class="engine-card-header">
-              <div class="engine-title">
-                <span class="engine-dot"></span>
-                DWPose WholeBody
-              </div>
-              <span class="engine-tag tag-precision">133 Pts Deep AI</span>
-            </div>
-            <p class="engine-desc">133 whole-body landmarks + full 21-joint per-hand finger curling & articulation via ONNX.</p>
-          </div>
+        <div class="section-title">Tracking Engine</div>
+        <div class="segmented-control">
+          <button type="button" class="segment-btn active" id="engineCardMediapipe" onclick="selectEngine('mediapipe')">
+            MediaPipe Pose
+          </button>
+          <button type="button" class="segment-btn" id="engineCardDwpose" onclick="selectEngine('dwpose')">
+            DWPose WholeBody
+          </button>
         </div>
         <input type="hidden" id="selectedEngine" value="mediapipe">
-      </div>
 
-      <!-- Section 4: Motion Settings -->
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-title">
-            <span class="section-number">04</span> Engine & Tuning
-          </div>
-          <span class="section-tag">Anti-Jitter</span>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-dim);">
-            <span>Compute Device</span>
-            <span style="color:var(--cyan)">Auto-Optimized</span>
-          </div>
+        <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
+          <div style="font-size:0.7rem; color:var(--text-dim); font-weight:600;">Execution Device</div>
           <select id="deviceSelect">
-            <option value="cpu" selected>CPU (Lightweight / Stable)</option>
-            <option value="cuda">GPU (NVIDIA CUDA Acceleration)</option>
+            <option value="cpu" selected>CPU</option>
+            <option value="cuda">CUDA (GPU)</option>
           </select>
         </div>
       </div>
 
-      <!-- Section 5: Primary Action & Status -->
+      <!-- Action Button -->
       <button id="runBtn" class="primary" onclick="startAnimationPipeline()" disabled>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Animate 3D Character
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Animate Character
       </button>
 
-      <!-- Live Pipeline Stepper Status -->
+      <!-- Pipeline Progress -->
       <div id="statusCard" class="status-card" style="display:none">
         <div class="status-header">
           <span id="statusTitle">Processing</span>
-          <span id="statusPercent" style="color:var(--cyan)">0%</span>
+          <span id="statusPercent" style="color:var(--text-bright)">0%</span>
         </div>
         <div class="pipeline-stepper">
-          <div id="stepPill1" class="step-pill">1. Ingest</div>
-          <div id="stepPill2" class="step-pill">2. Extract</div>
-          <div id="stepPill3" class="step-pill">3. Retarget</div>
-          <div id="stepPill4" class="step-pill">4. Pack GLB</div>
+          <div id="stepPill1" class="step-pill">Ingest</div>
+          <div id="stepPill2" class="step-pill">Extract</div>
+          <div id="stepPill3" class="step-pill">Retarget</div>
+          <div id="stepPill4" class="step-pill">Pack GLB</div>
         </div>
         <div class="progress-bar-bg">
           <div id="progressBar" class="progress-bar-fill"></div>
@@ -1014,8 +853,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       </div>
 
       <button id="downloadBtn" class="download-btn" onclick="downloadResult()" style="display:none">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download Animated .GLB
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Animated GLB
       </button>
     </div>
 
@@ -1024,24 +863,24 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <div class="stage-header">
         <div class="view-mode-tabs">
           <button class="view-tab active" id="tabSplit" onclick="setViewMode('split')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="2"/><rect x="13" y="3" width="8" height="18" rx="2"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="2"/><rect x="13" y="3" width="8" height="18" rx="2"/></svg>
             Side-by-Side
           </button>
           <button class="view-tab" id="tab3d" onclick="setViewMode('3d')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-            3D Solo
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            3D Character
           </button>
           <button class="view-tab" id="tabVideo" onclick="setViewMode('video')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Video Solo
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Reference Video
           </button>
         </div>
 
         <div class="stage-tools">
-          <select id="animSelect" onchange="switchAnimation(this.value)" style="display:none; font-size:0.75rem; padding:4px 8px;"></select>
+          <select id="animSelect" onchange="switchAnimation(this.value)" style="display:none; font-size:0.72rem; padding:3px 7px;"></select>
           <button class="ctrl-btn" onclick="resetCamera()" title="Reset 3D Camera [R]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-            Reset Cam
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Reset View
           </button>
         </div>
       </div>
@@ -1051,12 +890,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <!-- Video Viewport -->
         <div class="viewport-card" id="videoViewport">
           <div class="viewport-tag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Original Video
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Reference Video
             <span id="videoMetaBadge" class="viewport-meta">No media</span>
           </div>
           <div id="videoEmptyState" class="viewport-empty">
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
             <h4>Reference Footage</h4>
             <p>Upload or drag a video or photo onto the left panel to preview playback</p>
           </div>
@@ -1067,31 +906,34 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <!-- 3D Viewport -->
         <div class="viewport-card" id="modelViewport">
           <div class="viewport-tag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-            Retargeted 3D Mesh
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            3D Character
             <span id="modelMetaBadge" class="viewport-meta">Waiting for model</span>
           </div>
 
           <!-- Floating Viewport HUD -->
           <div class="viewport-hud">
             <button class="hud-btn" id="btnSkeleton" onclick="toggleSkeleton()" title="Toggle Skeleton Overlay [B]">
-              🦴 Bones
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="12" y1="12" x2="6" y2="10"/><line x1="12" y1="12" x2="18" y2="10"/><line x1="12" y1="16" x2="8" y2="21"/><line x1="12" y1="16" x2="16" y2="21"/></svg>
+              Skeleton
             </button>
             <button class="hud-btn active" id="btnGrid" onclick="toggleGrid()" title="Toggle Floor Grid [G]">
-              📐 Grid
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+              Grid
             </button>
             <button class="hud-btn" id="btnWireframe" onclick="toggleWireframe()" title="Toggle Wireframe">
-              🌐 Wire
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              Wireframe
             </button>
           </div>
 
           <div id="modelEmptyState" class="viewport-empty">
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
             <h4>3D Character Viewport</h4>
             <p>Upload or drag a rigged 3D character (GLB, GLTF, FBX) onto the left panel</p>
           </div>
           <div id="viewport3d"></div>
-          <div class="viewport-hints">Left Click: Rotate | Right Click: Pan | Scroll: Zoom | Space: Play/Pause</div>
+          <div class="viewport-hints">Rotate: Left Drag | Pan: Right Drag | Zoom: Scroll | Play: Space</div>
         </div>
       </div>
 
@@ -1105,17 +947,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           <!-- Playback Controls -->
           <div class="ctrl-group">
             <button id="playBtn" class="ctrl-btn play-btn" onclick="togglePlayback()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <span>Play</span>
-              <span class="ctrl-key">Space</span>
             </button>
             <button class="ctrl-btn" onclick="stepFrame(-1)" title="Previous Frame [Left Arrow]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
-              -1F <span class="ctrl-key">←</span>
+              -1F
             </button>
             <button class="ctrl-btn" onclick="stepFrame(1)" title="Next Frame [Right Arrow]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-              +1F <span class="ctrl-key">→</span>
+              +1F
             </button>
             <div class="time-display">
               <span id="timecodeText">00:00.00 / 00:00.00</span>
@@ -1125,19 +964,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
           <!-- Speed & Loop -->
           <div class="ctrl-group">
-            <div style="display:flex; gap:2px; background:var(--bg-card); padding:2px; border-radius:6px; border:1px solid var(--border)">
-              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(0.25)">0.25x</button>
-              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(0.5)">0.5x</button>
-              <button class="ctrl-btn active" id="spd1x" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(1.0)">1.0x</button>
-              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(1.5)">1.5x</button>
-              <button class="ctrl-btn" style="padding:3px 8px; font-size:0.75rem;" onclick="setSpeed(2.0)">2.0x</button>
+            <div class="speed-group">
+              <button class="ctrl-btn" onclick="setSpeed(0.5)">0.5x</button>
+              <button class="ctrl-btn active" id="spd1x" onclick="setSpeed(1.0)">1.0x</button>
+              <button class="ctrl-btn" onclick="setSpeed(1.5)">1.5x</button>
+              <button class="ctrl-btn" onclick="setSpeed(2.0)">2.0x</button>
             </div>
             <button id="loopBtn" class="ctrl-btn active" onclick="toggleLoop()" title="Toggle Looping [L]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
               Loop
             </button>
             <button id="muteBtn" class="ctrl-btn active" onclick="toggleMute()" title="Toggle Audio [M]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
               Muted
             </button>
           </div>
@@ -1552,7 +1390,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       .then(r => r.json())
       .then(d => {
         const badge = document.getElementById('deviceBadge');
-        badge.innerText = d.cuda_available ? 'GPU Mode (CUDA Available)' : 'CPU Mode (Optimized)';
+        badge.innerText = d.cuda_available ? 'CUDA' : 'CPU';
       });
 
     document.getElementById('mediaInput').addEventListener('change', (e) => {
@@ -1766,7 +1604,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         const totalSec = ((performance.now() - startTime) / 1000).toFixed(1);
         statusTimer.innerText = `${totalSec}s`;
         const boneNotice = lastAnimatedBoneCount > 0 ? ` (${lastAnimatedBoneCount} bones animated: spine, limbs, fingers)` : '';
-        statusText.innerText = `Synchronized playback ready!${boneNotice}`;
+        statusText.innerText = `Animation ready${boneNotice}`;
         document.getElementById('downloadBtn').style.display = 'flex';
       } catch (err) {
         clearInterval(progressTimer);
