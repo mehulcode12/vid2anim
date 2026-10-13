@@ -257,3 +257,43 @@ def test_replace_existing_animations_in_glb(tmp_path):
     assert anims[0]["name"] == "Vid2Anim_Motion"
 
 
+def test_canonical_skeleton_and_universal_transfer(tmp_path):
+    """Test SO(3) Lie algebra canonical FK solver and C D C^T transfer."""
+    import numpy as np
+    from vid2anim.core.canonical_skeleton import solve_canonical_motion
+    from vid2anim.core.universal_transfer import UniversalTransferSolver
+    from vid2anim.core.rig_detector import inspect_model, parse_glb_json
+    from vid2anim.utils.fixtures import create_synthetic_humanoid_glb, create_synthetic_motion_sequence
+
+    motion = create_synthetic_motion_sequence(frames=15, fps=30.0)
+    canon = solve_canonical_motion(motion)
+    assert canon.frame_count == 15
+    assert len(canon.r_anim) == 15
+    assert "hips" in canon.r_anim[0]
+    assert "left_arm" in canon.r_anim[0]
+
+    # Verify SO(3) orthogonality of canonical rotations
+    for j, r in canon.r_anim[0].items():
+        assert np.allclose(r @ r.T, np.eye(3), atol=1e-5), f"Non-orthogonal matrix for {j}"
+        assert abs(np.linalg.det(r) - 1.0) < 1e-4, f"Det != 1 for {j}"
+
+    # Test transfer on synthetic humanoid GLB
+    model_path = tmp_path / "transfer_test.glb"
+    create_synthetic_humanoid_glb(model_path)
+    rig = inspect_model(model_path)
+    gltf, _ = parse_glb_json(model_path)
+
+    solver = UniversalTransferSolver(gltf, rig)
+    assert len(solver.basis_change) > 0
+
+    bone_rots, root_trans = solver.transfer_motion(canon)
+    assert len(bone_rots) > 0
+    assert root_trans.shape == (15, 3)
+
+    # Verify unit quaternions
+    for bone_name, quats in bone_rots.items():
+        norms = np.linalg.norm(quats, axis=-1)
+        assert np.allclose(norms, 1.0, atol=1e-4), f"Non-unit quaternions for {bone_name}"
+
+
+

@@ -124,15 +124,7 @@ class GLBAnimationExporter:
 
             node_idx = node_name_to_idx[bone_name]
 
-            # If node has a non-identity bind rotation, compose: Q_track = Q_bind * Q_anim
-            if bone_name in node_bind_rotations:
-                bind_q = node_bind_rotations[bone_name]
-                if not np.allclose(bind_q, np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32), atol=1e-4):
-                    composed = np.zeros_like(quat_frames)
-                    for f_idx in range(len(quat_frames)):
-                        composed[f_idx] = quat_multiply(bind_q, quat_frames[f_idx])
-                    quat_frames = composed
-
+            # quat_frames is already in the final glTF node local rotation frame
             # Write rotation data (float32, VEC4)
             rot_bytes = quat_frames.astype(np.float32).tobytes()
             rot_offset = len(bin_appended)
