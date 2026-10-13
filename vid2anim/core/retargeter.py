@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
-from ..utils.math_3d import continue_quaternion, normalize, quat_identity, rotation_between_vectors
+from ..utils.math_3d import continue_quaternion, normalize, quat_identity, quat_multiply, rotation_between_vectors
 from ..utils.progress import ProgressReporter
+from .calibration import PoseCalibrator
 from .motion_extractor import MotionSequence
 from .rig_detector import CANONICAL_JOINTS, RigAnalysis
 
@@ -59,6 +60,7 @@ class UniversalRetargeter:
         self,
         motion: MotionSequence,
         rig: RigAnalysis,
+        calibrator: Optional[PoseCalibrator] = None,
     ) -> RetargetedAnimation:
         """Retarget the extracted motion sequence onto the target rig."""
         num_frames = motion.frame_count
@@ -93,6 +95,11 @@ class UniversalRetargeter:
                             curr_dir = normalize(curr_vec)
                             q_rot = rotation_between_vectors(rest_vec, curr_dir)
                             
+                            # Apply rest-pose corrective offset if calibrator provided
+                            if calibrator is not None:
+                                q_offset = calibrator.get_rest_offset(canonical)
+                                q_rot = quat_multiply(q_rot, q_offset)
+
                             # Preserve sign continuity
                             q_clean = continue_quaternion(q_rot, prev_rotations[target_bone])
                             prev_rotations[target_bone] = q_clean

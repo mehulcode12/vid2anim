@@ -32,7 +32,7 @@ class PipelineConfig:
     max_duration_sec: float = 30.0
     smooth: bool = True
     smoothness_factor: float = 1.0
-    rest_pose: RestPoseType = RestPoseType.T_POSE
+    rest_pose: RestPoseType = RestPoseType.AUTO
     progress_jsonl: Optional[Path] = None
 
 
@@ -100,10 +100,15 @@ class Vid2AnimPipeline:
                 smoother = TemporalMotionSmoother(position_smoothness=self.config.smoothness_factor)
                 motion = smoother.smooth_motion_positions(scaled_motion)
 
-            # 6. Universal Retargeting
-            self.reporter.report("PIPELINE", 0.70, f"Retargeting onto {rig_info.rig_type.value} armature...")
+            # 6. Universal Retargeting & Rest-Pose Calibration
+            pose_desc = f"{rig_info.detected_rest_pose.upper()} ({rig_info.rest_arm_angle_deg:.1f}°)"
+            self.reporter.report("PIPELINE", 0.70, f"Retargeting onto {rig_info.rig_type.value} armature [{pose_desc}]...")
+            calibrator = PoseCalibrator(
+                rest_pose=self.config.rest_pose,
+                arm_angle_deg=rig_info.rest_arm_angle_deg,
+            )
             retargeter = UniversalRetargeter(reporter=self.reporter)
-            animation = retargeter.retarget(motion, rig_info)
+            animation = retargeter.retarget(motion, rig_info, calibrator=calibrator)
 
             if self.config.smooth and animation.frame_count > 3:
                 smoother = TemporalMotionSmoother()

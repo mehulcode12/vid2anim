@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import numpy as np
 
+from ..utils.math_3d import quat_multiply
 from ..utils.progress import ProgressReporter
 from .retargeter import RetargetedAnimation
 from .rig_detector import RigAnalysis
@@ -66,11 +67,15 @@ class GLBAnimationExporter:
                     existing_bin = chunk_data
                     break
 
-        # Map bone names to glTF node indices
+        # Map bone names to glTF node indices and bind rotations
         node_name_to_idx: Dict[str, int] = {}
+        node_bind_rotations: Dict[str, np.ndarray] = {}
         for idx, node in enumerate(gltf_data.get("nodes", [])):
             if "name" in node:
-                node_name_to_idx[node["name"]] = idx
+                name = node["name"]
+                node_name_to_idx[name] = idx
+                if "rotation" in node:
+                    node_bind_rotations[name] = np.array(node["rotation"], dtype=np.float32)
 
         # Prepare animation buffer data
         bin_appended = bytearray(existing_bin)
@@ -118,6 +123,15 @@ class GLBAnimationExporter:
 
             node_idx = node_name_to_idx[bone_name]
 
+            # If node has a non-identity bind rotation, compose: Q_track = Q_bind * Q_anim
+            if bone_name in node_bind_rotations:
+                bind_q = node_bind_rotations[bone_name]
+                if not np.allclose(bind_q, np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32), atol=1e-4):
+                    composed = np.zeros_like(quat_frames)
+                    for f_idx in range(len(quat_frames)):
+                        composed[f_idx] = quat_multiply(bind_q, quat_frames[f_idx])
+                    quat_frames = composed
+
             # Write rotation data (float32, VEC4)
             rot_bytes = quat_frames.astype(np.float32).tobytes()
             rot_offset = len(bin_appended)
@@ -159,7 +173,10 @@ class GLBAnimationExporter:
         root_bone = rig_info.bone_mapping.get("hips")
         if root_bone and root_bone in node_name_to_idx and len(animation.root_translations) > 0:
             root_node_idx = node_name_to_idx[root_bone]
-            trans_bytes = animation.root_translations.astype(np.float32).tobytes()
+            root_node = gltf_data["nodes"][root_node_idx]
+            bind_trans = np.array(root_node.get("translation", [0.0, 0.0, 0.0]), dtype=np.float32)
+            final_trans = animation.root_translations + bind_trans
+            trans_bytes = final_trans.astype(np.float32).tobytes()
             trans_offset = len(bin_appended)
             bin_appended.extend(trans_bytes)
             _pad_4bytes(bin_appended)

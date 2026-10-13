@@ -63,7 +63,7 @@ def main() -> None:
     run_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
     run_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds (default: 30.0)")
     run_parser.add_argument("--no-smooth", action="store_true", help="Disable temporal anti-jitter filter")
-    run_parser.add_argument("--rest-pose", choices=["t_pose", "a_pose_30", "a_pose_45"], default="t_pose", help="Target model rest pose alignment (default: t_pose)")
+    run_parser.add_argument("--rest-pose", choices=["auto", "t_pose", "a_pose_30", "a_pose_45"], default="auto", help="Target model rest pose alignment (default: auto)")
     run_parser.add_argument("--progress-jsonl", default=None, help="Path to write streaming JSONL progress events (for Web UI / extensions)")
 
     args = parser.parse_args()
