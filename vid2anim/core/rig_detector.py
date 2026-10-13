@@ -58,14 +58,14 @@ JOINT_ALIASES: Dict[str, List[str]] = {
     "chest": ["mixamorig:spine2", "mixamorig:spine1", "chest", "upperchest", "spine02", "spine_02", "spine_03", "spine2", "def-chest", "b_chest", "cc_base_spine02"],
     "neck": ["mixamorig:neck", "mixamorig_neck", "neck", "neck_01", "neck01", "def-neck", "b_neck", "cc_base_neck", "cc_base_necktwist01"],
     "head": ["mixamorig:head", "mixamorig_head", "head", "head_01", "def-head", "b_head", "cc_base_head"],
-    "left_shoulder": ["mixamorig:leftshoulder", "leftshoulder", "clavicle_l", "l_clavicle", "shoulder.l", "def-shoulder.l", "b_l_shoulder", "cc_base_l_clavicle"],
-    "left_arm": ["mixamorig:leftarm", "leftupperarm", "upperarm_l", "upper_arm.l", "arm.l", "def-upper_arm.l", "b_l_arm", "l_upperarm", "l_arm", "cc_base_l_upperarm"],
-    "left_forearm": ["mixamorig:leftforearm", "leftlowerarm", "lowerarm_l", "forearm.l", "def-forearm.l", "b_l_forearm", "l_forearm", "l_lowerarm", "cc_base_l_forearm"],
-    "left_hand": ["mixamorig:lefthand", "lefthand", "hand_l", "hand.l", "def-hand.l", "b_l_hand", "l_hand", "cc_base_l_hand"],
-    "right_shoulder": ["mixamorig:rightshoulder", "rightshoulder", "clavicle_r", "r_clavicle", "shoulder.r", "def-shoulder.r", "b_r_shoulder", "cc_base_r_clavicle"],
-    "right_arm": ["mixamorig:rightarm", "rightupperarm", "upperarm_r", "upper_arm.r", "arm.r", "def-upper_arm.r", "b_r_arm", "r_upperarm", "r_arm", "cc_base_r_upperarm"],
-    "right_forearm": ["mixamorig:rightforearm", "rightlowerarm", "lowerarm_r", "forearm.r", "def-forearm.r", "b_r_forearm", "r_forearm", "r_lowerarm", "cc_base_r_forearm"],
-    "right_hand": ["mixamorig:righthand", "righthand", "hand_r", "hand.r", "def-hand.r", "b_r_hand", "r_hand", "cc_base_r_hand"],
+    "left_shoulder": ["mixamorig:leftshoulder", "mixamorig_leftshoulder", "leftshoulder", "shoulder_l", "shoulder.l", "l_shoulder", "left_shoulder", "shoulderl", "def-shoulder.l", "b_l_shoulder", "clavicle_l", "clavicle.l", "l_clavicle", "clav_l", "clav.l", "l_clav", "crav_l", "crav.l", "collar_l", "collar.l", "collarbone_l", "cc_base_l_clavicle", "j_bip_l_shoulder", "jnt_clav_l", "jnt_shoulder_l", "shldr_l", "scapula_l"],
+    "left_arm": ["mixamorig:leftarm", "leftupperarm", "upperarm_l", "upper_arm.l", "arm.l", "def-upper_arm.l", "b_l_arm", "l_upperarm", "l_arm", "cc_base_l_upperarm", "j_bip_l_upperarm", "jnt_arm_l"],
+    "left_forearm": ["mixamorig:leftforearm", "leftlowerarm", "lowerarm_l", "forearm.l", "def-forearm.l", "b_l_forearm", "l_forearm", "l_lowerarm", "cc_base_l_forearm", "j_bip_l_lowerarm", "jnt_forearm_l"],
+    "left_hand": ["mixamorig:lefthand", "lefthand", "hand_l", "hand.l", "def-hand.l", "b_l_hand", "l_hand", "cc_base_l_hand", "j_bip_l_hand", "jnt_hand_l"],
+    "right_shoulder": ["mixamorig:rightshoulder", "mixamorig_rightshoulder", "rightshoulder", "shoulder_r", "shoulder.r", "r_shoulder", "right_shoulder", "shoulderr", "def-shoulder.r", "b_r_shoulder", "clavicle_r", "clavicle.r", "r_clavicle", "clav_r", "clav.r", "r_clav", "crav_r", "crav.r", "collar_r", "collar.r", "collarbone_r", "cc_base_r_clavicle", "j_bip_r_shoulder", "jnt_clav_r", "jnt_shoulder_r", "shldr_r", "scapula_r"],
+    "right_arm": ["mixamorig:rightarm", "rightupperarm", "upperarm_r", "upper_arm.r", "arm.r", "def-upper_arm.r", "b_r_arm", "r_upperarm", "r_arm", "cc_base_r_upperarm", "j_bip_r_upperarm", "jnt_arm_r"],
+    "right_forearm": ["mixamorig:rightforearm", "rightlowerarm", "lowerarm_r", "forearm.r", "def-forearm.r", "b_r_forearm", "r_forearm", "r_lowerarm", "cc_base_r_forearm", "j_bip_r_lowerarm", "jnt_forearm_r"],
+    "right_hand": ["mixamorig:righthand", "righthand", "hand_r", "hand.r", "def-hand.r", "b_r_hand", "r_hand", "cc_base_r_hand", "j_bip_r_hand", "jnt_hand_r"],
     "left_upleg": ["mixamorig:leftupleg", "leftupperleg", "thigh_l", "thigh.l", "def-thigh.l", "b_l_upleg", "l_thigh", "l_upperleg", "cc_base_l_thigh"],
     "left_leg": ["mixamorig:leftleg", "leftlowerleg", "calf_l", "shin.l", "def-shin.l", "b_l_leg", "l_calf", "l_lowerleg", "l_leg", "cc_base_l_calf"],
     "left_foot": ["mixamorig:leftfoot", "leftfoot", "foot_l", "foot.l", "def-foot.l", "b_l_foot", "l_foot", "cc_base_l_foot"],
@@ -333,8 +333,8 @@ class UniversalBoneMatcher:
         },
         "left_shoulder": {
             "side": "left",
-            "high_keys": {"clavicle", "collar", "clav", "crav", "shldr", "肩"},
-            "keys": {"shoulder"},
+            "high_keys": {"clavicle", "collar", "clav", "crav", "shldr", "shoulder", "collarbone", "肩", "鎖骨"},
+            "keys": {"scapula", "acromion", "leftshoulder"},
             "bad": {"arm", "forearm", "hand"},
         },
         "left_arm": {
@@ -359,8 +359,8 @@ class UniversalBoneMatcher:
         },
         "right_shoulder": {
             "side": "right",
-            "high_keys": {"clavicle", "collar", "clav", "crav", "shldr", "肩"},
-            "keys": {"shoulder"},
+            "high_keys": {"clavicle", "collar", "clav", "crav", "shldr", "shoulder", "collarbone", "肩", "鎖骨"},
+            "keys": {"scapula", "acromion", "rightshoulder"},
             "bad": {"arm", "forearm", "hand"},
         },
         "right_arm": {
@@ -487,17 +487,17 @@ class UniversalBoneMatcher:
         for canonical in cls.CANONICAL_ORDER:
             info = dict(cls.CANONICAL_DEFS[canonical])
             
-            # If dedicated clavicle bones exist, shoulder bones belong to arm, not collar
+            # Dedicated clavicle & shoulder disambiguation
             if canonical == "left_shoulder" and has_clav_l:
-                info["high_keys"] = {"clavicle", "collar", "clav", "crav", "鎖骨"}
-                info["keys"] = set()
+                info["high_keys"] = {"clavicle", "collar", "clav", "crav", "鎖骨", "shoulder", "shldr"}
+                info["keys"] = {"scapula", "acromion", "leftshoulder"}
             elif canonical == "right_shoulder" and has_clav_r:
-                info["high_keys"] = {"clavicle", "collar", "clav", "crav", "鎖骨"}
-                info["keys"] = set()
+                info["high_keys"] = {"clavicle", "collar", "clav", "crav", "鎖骨", "shoulder", "shldr"}
+                info["keys"] = {"scapula", "acromion", "rightshoulder"}
             elif canonical == "left_arm" and has_clav_l:
-                info["high_keys"] = {"upperarm", "腕", "shoulder", "shldr", "shourder"}
+                info["high_keys"] = {"upperarm", "arm", "腕", "shoulder", "shldr", "shourder"}
             elif canonical == "right_arm" and has_clav_r:
-                info["high_keys"] = {"upperarm", "腕", "shoulder", "shldr", "shourder"}
+                info["high_keys"] = {"upperarm", "arm", "腕", "shoulder", "shldr", "shourder"}
 
             best_bone = None
             best_score = -999.0
@@ -787,6 +787,12 @@ class TopologicalRigSolver:
                     if name not in mapped_bones:
                         mapping["left_arm"] = name
                         mapped_bones.add(name)
+                    cur = parent_map.get(cur)
+                    if cur is not None and "left_shoulder" not in mapping:
+                        name = nodes[cur].get("name", f"bone_{cur}")
+                        if name not in mapped_bones and "spine" not in name.lower() and "chest" not in name.lower():
+                            mapping["left_shoulder"] = name
+                            mapped_bones.add(name)
 
             # Trace right arm chain
             cur = r_hand_idx
@@ -807,6 +813,12 @@ class TopologicalRigSolver:
                     if name not in mapped_bones:
                         mapping["right_arm"] = name
                         mapped_bones.add(name)
+                    cur = parent_map.get(cur)
+                    if cur is not None and "right_shoulder" not in mapping:
+                        name = nodes[cur].get("name", f"bone_{cur}")
+                        if name not in mapped_bones and "spine" not in name.lower() and "chest" not in name.lower():
+                            mapping["right_shoulder"] = name
+                            mapped_bones.add(name)
 
         return mapping
 

@@ -239,6 +239,9 @@ class UniversalTransferSolver:
                 if any(k in name_l for k in ["forearm", "lowerarm", "elbow"]):
                     p_canon = f"{side_str}_forearm"
                     weight = 0.50
+                elif any(k in name_l for k in ["shoulder", "clav", "collar", "shldr", "deltoid"]):
+                    p_canon = f"{side_str}_shoulder"
+                    weight = 0.50
                 elif any(k in name_l for k in ["upperarm", "arm"]):
                     p_canon = f"{side_str}_arm"
                     weight = 0.50
@@ -263,7 +266,10 @@ class UniversalTransferSolver:
 
             elif "sharebone" in name_l or "share_bone" in name_l or "share" in name_l:
                 side_str = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
-                if "elbow" in name_l:
+                if any(k in name_l for k in ["shoulder", "clav", "collar", "shldr", "deltoid"]):
+                    p_canon = f"{side_str}_shoulder"
+                    weight = 0.50
+                elif "elbow" in name_l:
                     p_canon = f"{side_str}_forearm"
                     weight = -0.35
                 elif "knee" in name_l:
