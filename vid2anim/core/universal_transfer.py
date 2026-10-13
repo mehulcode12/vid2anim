@@ -392,7 +392,7 @@ class UniversalTransferSolver:
 
         # Discover finger bones for procedural relaxed posing & dynamic flexion
         import re
-        self.finger_bones: List[Tuple[int, str, int, bool]] = []
+        self.finger_bones: List[Tuple[int, str, int, bool, str]] = []
         for idx, node in enumerate(self.nodes):
             name = node.get("name", "")
             if name in mapped_target_names or "scalecompensation" in name.lower() or "ctrl" in name.lower():
@@ -410,7 +410,17 @@ class UniversalTransferSolver:
                 else:
                     phalanx = 1
                 is_thumb = "thumb" in name_l
-                self.finger_bones.append((idx, side, phalanx, is_thumb))
+                if is_thumb:
+                    digit = "thumb"
+                elif "index" in name_l:
+                    digit = "index"
+                elif any(k in name_l for k in ["pinky", "little", "rittre"]):
+                    digit = "pinky"
+                elif "ring" in name_l:
+                    digit = "ring"
+                else:
+                    digit = "middle"
+                self.finger_bones.append((idx, side, phalanx, is_thumb, digit))
 
         # Discover detached waist / hip accessory nodes (e.g. swords, scabbards, holsters, pouches, skirts)
         # that are siblings of the hips (children of hips' parent node)
@@ -587,7 +597,7 @@ class UniversalTransferSolver:
             else:
                 v_knuckle_span = np.array([0.0, 0.0, 1.0])
 
-            for f_idx, s, phalanx, is_thumb in self.finger_bones:
+            for f_idx, s, phalanx, is_thumb, digit in self.finger_bones:
                 if s != side:
                     continue
                 p_bone = self.rest_world_mat[f_idx][:3, 3]
@@ -709,7 +719,8 @@ class UniversalTransferSolver:
             prev_rot_mat[h_name] = quat_xyzw_to_matrix(q_init)
 
         # Initialize rotation tracks for procedural finger bones
-        for f_idx, _, _, _ in self.finger_bones:
+        for f_item in self.finger_bones:
+            f_idx = f_item[0]
             f_name = self.idx_to_name[f_idx]
             bone_rotations[f_name] = np.zeros((num_frames, 4), dtype=np.float32)
             q_init = self.rest_local_quat[f_idx].astype(np.float32)
@@ -719,37 +730,55 @@ class UniversalTransferSolver:
         # Fully determined bones where twist continuity must not override direct 3D orientation
         fully_determined: Set[str] = {"hips", "chest", "left_foot", "right_foot", "left_toe", "right_toe", "spine1"}
 
-        # Precompute per-side dynamic finger curl trajectories with temporal filtering
-        curl_dyn_by_side: Dict[str, np.ndarray] = {
-            "left": np.zeros(num_frames, dtype=np.float64),
-            "right": np.zeros(num_frames, dtype=np.float64),
-        }
+        # Precompute per-digit dynamic finger curl trajectories with temporal filtering
+        curl_dyn_by_digit: Dict[Tuple[str, str], np.ndarray] = {}
         for side in ["left", "right"]:
             w_key = f"{side}_hand"
             fa_key = f"{side}_forearm"
             i_key = f"{side}_fingers"
             p_key = f"{side}_pinky"
 
+            raw_curls: Dict[str, List[float]] = {
+                "index": [],
+                "pinky": [],
+                "middle": [],
+                "ring": [],
+                "thumb": [],
+            }
+
             if w_key in joint_pos and i_key in joint_pos:
-                raw_curls = []
                 for f in range(num_frames):
                     d_fa = float(np.linalg.norm(joint_pos[w_key][f] - joint_pos[fa_key][f])) if fa_key in joint_pos else 0.22
                     d_fa = max(d_fa, 0.10)
                     r_idx = float(np.linalg.norm(joint_pos[i_key][f] - joint_pos[w_key][f])) / d_fa
                     r_pky = float(np.linalg.norm(joint_pos[p_key][f] - joint_pos[w_key][f])) / d_fa if p_key in joint_pos else r_idx
-                    # Maximum hand extension span across index and pinky (scaled to match index reach)
-                    span = max(r_idx, r_pky * 1.35)
-                    # Natural calibrated extension thresholds:
-                    # Extended/open hand is span >= 0.52 (curl = 0.0)
-                    # Tightly clenched fist is span <= 0.33 (curl = 1.0)
-                    c = float(np.clip((0.52 - span) / (0.52 - 0.33), 0.0, 1.0))
-                    raw_curls.append(c)
 
-                # Smooth with EMA filter (alpha=0.35) to eliminate single-frame tracking noise
-                s = raw_curls[0] if raw_curls else 0.0
-                for f, c in enumerate(raw_curls):
-                    s = 0.35 * c + 0.65 * s
-                    curl_dyn_by_side[side][f] = s
+                    # Independent extension metrics for index and pinky
+                    ci = float(np.clip((0.54 - r_idx) / (0.54 - 0.32), 0.0, 1.0))
+                    cp = float(np.clip((0.38 - r_pky) / (0.38 - 0.20), 0.0, 1.0))
+                    # Anatomical cascade for middle and ring fingers
+                    cm = 0.65 * ci + 0.35 * cp
+                    cr = 0.30 * ci + 0.70 * cp
+                    # Thumb coordinates overall hand contraction
+                    ct = 0.50 * ci + 0.50 * cp
+
+                    raw_curls["index"].append(ci)
+                    raw_curls["pinky"].append(cp)
+                    raw_curls["middle"].append(cm)
+                    raw_curls["ring"].append(cr)
+                    raw_curls["thumb"].append(ct)
+
+                # Smooth with EMA filter (alpha=0.35) to eliminate high-frequency tracking noise
+                for dig in ["index", "pinky", "middle", "ring", "thumb"]:
+                    smoothed = np.zeros(num_frames, dtype=np.float64)
+                    s = raw_curls[dig][0] if raw_curls[dig] else 0.0
+                    for f, c in enumerate(raw_curls[dig]):
+                        s = 0.35 * c + 0.65 * s
+                        smoothed[f] = s
+                    curl_dyn_by_digit[(side, dig)] = smoothed
+            else:
+                for dig in ["index", "pinky", "middle", "ring", "thumb"]:
+                    curl_dyn_by_digit[(side, dig)] = np.zeros(num_frames, dtype=np.float64)
 
         # Solve per-frame hierarchical rotations with Forward Kinematics propagation
         for f in range(num_frames):
@@ -1053,9 +1082,9 @@ class UniversalTransferSolver:
                 prev_quat[s_name] = q_clean
                 bone_rotations[s_name][f] = q_clean
 
-            # Procedural finger posing and dynamic closed fist flexion
-            for f_idx, side, phalanx, is_thumb in self.finger_bones:
-                curl_dyn = float(curl_dyn_by_side.get(side, np.zeros(num_frames))[f])
+            # Procedural finger posing with independent per-digit flexion
+            for f_idx, side, phalanx, is_thumb, digit in self.finger_bones:
+                curl_dyn = float(curl_dyn_by_digit.get((side, digit), np.zeros(num_frames))[f])
 
                 if is_thumb:
                     deg = 4.0 + 54.0 * curl_dyn
