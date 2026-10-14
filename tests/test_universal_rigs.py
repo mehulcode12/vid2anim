@@ -309,10 +309,12 @@ def test_topological_aim_and_zero_inversion(tmp_path):
     canon = solve_canonical_motion(motion)
 
     # Test on real models in glb/ if present
+    tested_count = 0
     for model_name in ["scp_1471_mal0_stylized_low_poly_character.glb", "robot_police_unit_animated.glb", "cyborg_oni.glb"]:
         p = Path("glb") / model_name
         if not p.exists():
             continue
+        tested_count += 1
         gltf, _ = parse_glb_json(p)
         rig = inspect_model(p)
         solver = UniversalTransferSolver(gltf, rig)
@@ -324,6 +326,19 @@ def test_topological_aim_and_zero_inversion(tmp_path):
         for b_name, quats in bone_rots.items():
             norms = np.linalg.norm(quats, axis=-1)
             assert np.allclose(norms, 1.0, atol=1e-3), f"Non-unit quaternion in {b_name} for {model_name}"
+
+    if tested_count == 0:
+        from vid2anim.utils.fixtures import create_synthetic_humanoid_glb
+        synth_p = tmp_path / "synth_aim.glb"
+        create_synthetic_humanoid_glb(synth_p)
+        gltf, _ = parse_glb_json(synth_p)
+        rig = inspect_model(synth_p)
+        solver = UniversalTransferSolver(gltf, rig)
+        bone_rots, root_trans = solver.transfer_motion(canon, raw_motion=motion)
+        assert len(bone_rots) > 0
+        for b_name, quats in bone_rots.items():
+            norms = np.linalg.norm(quats, axis=-1)
+            assert np.allclose(norms, 1.0, atol=1e-3), f"Non-unit quaternion in {b_name} for synthetic model"
 
 
 def test_extended_skeletal_coverage_toes_spine1_twists_and_fingers():
@@ -397,6 +412,18 @@ def test_extended_skeletal_coverage_toes_spine1_twists_and_fingers():
         assert len(bone_rots) >= 50, f"Expected 50+ animated bones for Cyborg Oni, got {len(bone_rots)}"
         assert "CyberdemonRig:JNT_toe_l_061" in bone_rots
         assert "CyberdemonRig:JNT_index_1_l_033" in bone_rots
+
+    # Fallback verification if local glb/ folder is absent (e.g. fresh CI clone)
+    if not cc_path.exists() and not scp_path.exists() and not oni_path.exists():
+        cc_sample_bones = [
+            "CC_Base_L_ToeBase_08", "CC_Base_R_ToeBase_00", "CC_Base_Spine01_034",
+            "CC_Base_L_Index1_059", "CC_Base_L_ForearmTwist01_052",
+        ]
+        matched = UniversalBoneMatcher.match(cc_sample_bones)
+        assert matched["left_toe"] == "CC_Base_L_ToeBase_08"
+        assert matched["right_toe"] == "CC_Base_R_ToeBase_00"
+        assert matched["spine1"] == "CC_Base_Spine01_034"
+
 
 
 

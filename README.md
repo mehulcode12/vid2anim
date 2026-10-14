@@ -92,7 +92,7 @@
 
 To verify any 3D model's armature before retargeting, run:
 ```bash
-vid2anim inspect assets/character.glb
+vid2anim inspect character.glb
 ```
 
 ---
