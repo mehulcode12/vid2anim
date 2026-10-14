@@ -10,7 +10,7 @@ Requires no third-party pip dependencies inside Blender.
 
 bl_info = {
     "name": "vid2anim Blender Bridge",
-    "author": "vid2anim community",
+    "author": "Mehul & vid2anim contributors",
     "version": (0, 1, 0),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > vid2anim",

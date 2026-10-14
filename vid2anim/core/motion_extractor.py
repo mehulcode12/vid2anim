@@ -2,7 +2,7 @@
 
 Extracts 3D human pose kinematics from:
 - Single still photos (.jpg, .png)
-- Monocular action videos (.mp4, .mov, .webm, up to 30 seconds)
+- Monocular action videos (.mp4, .mov, .webm, up to 600s / 10 minutes)
 
 Includes an ultra-fast CPU engine (no GPU or multi-gigabyte downloads needed)
 and optional CUDA GPU acceleration when available.

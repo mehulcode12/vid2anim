@@ -5,6 +5,7 @@ Commands:
   vid2anim inspect    Inspect a 3D model and detect its skeleton/rig profile.
   vid2anim extract    Extract 3D motion from a video or photo to cached .npz.
   vid2anim retarget   Retarget cached motion onto a 3D model.
+  vid2anim serve      Launch local Web UI & API server with 3D viewport.
   vid2anim run        End-to-end: input media + 3D model -> animated .glb!
 """
 
@@ -38,7 +39,7 @@ def main() -> None:
 
     # Command: extract
     extract_parser = subparsers.add_parser("extract", help="Extract 3D motion from video or photo to cached .npz.")
-    extract_parser.add_argument("--input", "-i", required=True, help="Path to input photo or video (up to 30s)")
+    extract_parser.add_argument("--input", "-i", required=True, help="Path to input photo or video (.mp4, .mov, .jpg, .png)")
     extract_parser.add_argument("--output", "-o", default="outputs/motion_cache.npz", help="Output path for cached .npz")
     extract_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
     extract_parser.add_argument("--engine", choices=["mediapipe", "dwpose"], default="mediapipe", help="Motion tracking engine (default: mediapipe)")
