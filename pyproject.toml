@@ -76,3 +76,7 @@ vid2anim = "vid2anim.cli:main"
 where = ["."]
 include = ["vid2anim*"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
