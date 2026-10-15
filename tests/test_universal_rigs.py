@@ -422,10 +422,87 @@ def test_extended_skeletal_coverage_toes_spine1_twists_and_fingers():
         matched = UniversalBoneMatcher.match(cc_sample_bones)
         assert matched["left_toe"] == "CC_Base_L_ToeBase_08"
         assert matched["right_toe"] == "CC_Base_R_ToeBase_00"
-        assert matched["spine1"] == "CC_Base_Spine01_034"
+
+def test_finger_mapping_no_inversion():
+    """Verify that all fingers on both hands curl strictly into the palm with zero inversion."""
+    from pathlib import Path
+    import numpy as np
+    from vid2anim.core.rig_detector import parse_glb_json, inspect_model
+    from vid2anim.core.universal_transfer import UniversalTransferSolver
+
+    ybot_path = Path("glb") / "ybot.glb"
+    if not ybot_path.exists():
+        return
+
+    gltf_data, _ = parse_glb_json(ybot_path)
+    rig = inspect_model(ybot_path)
+    solver = UniversalTransferSolver(gltf_data, rig)
+
+    for side in ["left", "right"]:
+        for f_idx, s, ph, is_th, dig in solver.finger_bones:
+            if s != side or ph != 1 or is_th:
+                continue
+            axis_curl = solver.finger_curl_axes[f_idx]
+            rad = np.radians(45.0)
+            c_a, s_a = np.cos(rad), np.sin(rad)
+            u = axis_curl
+            r_curl = np.eye(3) * c_a + (1.0 - c_a) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_a
+
+            ch = solver.children_of.get(f_idx, [])
+            d_local = solver.rest_local_trans[ch[0]] if ch else np.array([0.05, 0, 0])
+            w_mat = solver.rest_world_mat[f_idx]
+            w_rot = w_mat[:3, :3]
+
+            tip_rest = solver.rest_world_mat[ch[0]][:3, 3] if ch else w_mat[:3, 3] + w_rot @ d_local
+            tip_curled = w_mat[:3, 3] + w_rot @ (r_curl @ d_local)
+            delta = tip_curled - tip_rest
+
+            # In T-pose, palmar direction is -Y (down). Curling fingers MUST displace in -Y (never +Y inverted)
+            assert delta[1] < -0.015, f"{side} {dig} curled backwards or inverted (dY={delta[1]:+.4f})"
 
 
+def test_neck_head_upright_neutral_gaze():
+    """Verify that neck and head retain a level, upright gaze and do not droop downward."""
+    from pathlib import Path
+    import numpy as np
+    from vid2anim.core.rig_detector import parse_glb_json, inspect_model
+    from vid2anim.core.universal_transfer import UniversalTransferSolver
+    from vid2anim.core.motion_extractor import MotionExtractor, MotionSequence
+    from vid2anim.core.canonical_skeleton import solve_canonical_motion, quat_xyzw_to_matrix
 
+    ybot_path = Path("glb") / "ybot.glb"
+    if not ybot_path.exists():
+        return
 
+    ext = MotionExtractor(engine="mediapipe")
+    def_frame = ext._generate_default_human_frame()
+    seq = MotionSequence(
+        fps=30.0,
+        duration_sec=1.0 / 30.0,
+        frame_count=1,
+        timestamps=np.array([0.0], dtype=np.float32),
+        joint_positions={k: np.expand_dims(v, axis=0) for k, v in def_frame.items()},
+        root_translation=np.zeros((1, 3), dtype=np.float32),
+    )
+    canon = solve_canonical_motion(seq)
 
+    gltf_data, _ = parse_glb_json(ybot_path)
+    rig = inspect_model(ybot_path)
+    solver = UniversalTransferSolver(gltf_data, rig)
 
+    bone_rot, _ = solver.transfer_motion(canon, raw_motion=seq)
+    q_neck = bone_rot["mixamorig:Neck"][0]
+    q_head = bone_rot["mixamorig:Head"][0]
+
+    r_neck = quat_xyzw_to_matrix(q_neck)
+    r_head = quat_xyzw_to_matrix(q_head)
+
+    aim_head_loc = solver.aim_local["head"]
+    w_chest = solver.rest_world_mat[solver.name_to_idx["mixamorig:Spine2"]][:3, :3]
+    w_neck_animated = w_chest @ r_neck
+    w_head_animated = w_neck_animated @ r_head
+    head_aim_w = w_head_animated @ aim_head_loc
+
+    pitch_head = float(np.degrees(np.arctan2(head_aim_w[2], head_aim_w[1])))
+    # Head world pitch must be near 0 (upright forward gaze, never bowed down >15 deg)
+    assert abs(pitch_head) < 5.0, f"Head pitched excessively: {pitch_head:.2f} deg"

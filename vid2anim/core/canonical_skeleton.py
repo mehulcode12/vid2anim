@@ -209,9 +209,22 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_world["chest"] = r_chest_world
 
         # Neck & Head (cervical chain sharing orientation smoothly across neck 55% & head 45%)
+        # In canonical skeleton, rest cervical axis extends upward [0, 1, 0] along the thoracic spine.
+        # Calibrate for the ~16 deg anatomical cervical lordosis angle between chest and cranial center
+        # so an upright human looking straight ahead produces a natural level gaze.
         p_head = get_pos("head", f)
-        v_neck = p_head - p_neck
-        d_neck_in_anim = r_world["chest"].T @ normalize(v_neck, np.array([0.0, 1.0, 0.0]))
+        v_neck = p_head - p_chest
+        d_neck_raw = r_world["chest"].T @ normalize(v_neck, np.array([0.0, 1.0, 0.0]))
+        if d_neck_raw[2] > 0.05:
+            theta = float(np.arctan2(d_neck_raw[2], d_neck_raw[1]))
+            theta_corr = theta - float(np.radians(16.0))
+            d_neck_in_anim = normalize(np.array([
+                d_neck_raw[0],
+                np.cos(theta_corr),
+                np.sin(theta_corr),
+            ], dtype=np.float64), np.array([0.0, 1.0, 0.0]))
+        else:
+            d_neck_in_anim = d_neck_raw
         r_delta_full = rotation_aligning(CANONICAL_REST_LOCAL_DIR["neck"], d_neck_in_anim)
         q_delta = matrix_to_quat_xyzw(r_delta_full)
         half_angle = float(np.arccos(np.clip(q_delta[3], -1.0, 1.0)))
@@ -223,7 +236,7 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["neck"] = r_neck
         r_world["neck"] = r_world["chest"] @ r_neck
 
-        d_head_in_anim = r_world["neck"].T @ normalize(v_neck, np.array([0.0, 1.0, 0.0]))
+        d_head_in_anim = r_world["neck"].T @ (r_world["chest"] @ d_neck_in_anim)
         r_head = rotation_aligning(CANONICAL_REST_LOCAL_DIR["head"], d_head_in_anim)
         r_anim["head"] = r_head
         r_world["head"] = r_world["neck"] @ r_head

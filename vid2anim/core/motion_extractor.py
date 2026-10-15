@@ -250,7 +250,12 @@ class MotionExtractor:
         r_shoulder = pt(6, depth_map.get("right_shoulder", 0.0))
         shoulders_mid = (l_shoulder + r_shoulder) * 0.5
         neck = shoulders_mid
-        head = pt(0, depth_map.get("head", 0.0))
+        l_ear = pt(3, depth_map.get("left_ear", 0.0))
+        r_ear = pt(4, depth_map.get("right_ear", 0.0))
+        if float(np.linalg.norm(l_ear - r_ear)) > 0.04:
+            head = (l_ear + r_ear) * 0.5
+        else:
+            head = pt(0, depth_map.get("head", 0.0))
 
         chest = hips + (shoulders_mid - hips) * 0.70
         spine1 = hips + (shoulders_mid - hips) * 0.525
@@ -712,7 +717,11 @@ class MotionExtractor:
         spine1 = hips + (shoulders_mid - hips) * 0.525
         spine = hips + (shoulders_mid - hips) * 0.35
         neck = shoulders_mid
-        head = pt(0)  # nose
+        l_ear, r_ear = pt(7), pt(8)
+        if float(np.linalg.norm(l_ear - r_ear)) > 0.04:
+            head = (l_ear + r_ear) * 0.5
+        else:
+            head = pt(0)
 
         return {
             "hips": hips,

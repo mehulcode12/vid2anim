@@ -400,7 +400,7 @@ class UniversalTransferSolver:
             name_l = name.lower()
             if any(k in name_l for k in ["thumb", "index", "mid", "middle", "ring", "pinky", "little", "rittre", "finger"]) and "toe" not in name_l and "share" not in name_l:
                 side = "left" if any(s in name_l for s in ["_l", ".l", "left", "l_"]) else "right"
-                m_ph = re.search(r'(?:thumb|index|mid|middle|ring|pinky|little|rittre)[^\d]*([123])', name_l)
+                m_ph = re.search(r'(?:thumb|index|mid|middle|ring|pinky|little|rittre)[^\d]*([1234])', name_l)
                 if m_ph:
                     phalanx = int(m_ph.group(1))
                 elif any(p in name_l for p in ["distal", "03"]):
@@ -460,6 +460,8 @@ class UniversalTransferSolver:
     def _build_topological_aim_axes(self) -> None:
         """Discover each bone's physical heading vector in its local coordinate frame."""
         for canon_p, canon_c in LIMB_CHILD.items():
+            if canon_p in ["neck", "head"]:
+                continue
             canon_c_actual = canon_c
             if canon_p == "spine" and "spine1" not in self.rig_info.bone_mapping:
                 canon_c_actual = "chest"
@@ -527,38 +529,21 @@ class UniversalTransferSolver:
                         lat = 1.0 if "left" in canon_hand else -1.0
                         self.aim_local[canon_hand] = m_rot.T @ np.array([lat, 0.0, 0.0])
 
-        # For neck and head, discover along-local axis (cervical heading)
+        # For neck and head, use vertical cervical heading (world +Y in rest pose)
+        # to prevent forward pitch tilt from rest translation offsets (Motion2MixamoRig reference)
         if "neck" in self.rig_info.bone_mapping and "neck" not in self.aim_local:
             nb = self.rig_info.bone_mapping["neck"]
             if nb in self.name_to_idx:
                 n_idx = self.name_to_idx[nb]
                 m_rot = _orthonormalize_matrix(self.rest_world_mat[n_idx][:3, :3])
-                ch_list = self.children_of.get(n_idx, [])
-                if ch_list:
-                    v_w = self.rest_world_mat[ch_list[0]][:3, 3] - self.rest_world_mat[n_idx][:3, 3]
-                    if float(np.linalg.norm(v_w)) > 1e-5:
-                        self.aim_local["neck"] = m_rot.T @ normalize(v_w)
-                if "neck" not in self.aim_local:
-                    self.aim_local["neck"] = m_rot.T @ np.array([0.0, 1.0, 0.0])
+                self.aim_local["neck"] = m_rot.T @ np.array([0.0, 1.0, 0.0])
 
         if "head" in self.rig_info.bone_mapping and "head" not in self.aim_local:
             hb = self.rig_info.bone_mapping["head"]
             if hb in self.name_to_idx:
                 h_idx = self.name_to_idx[hb]
                 m_rot = _orthonormalize_matrix(self.rest_world_mat[h_idx][:3, :3])
-                if "neck" in self.rig_info.bone_mapping and self.rig_info.bone_mapping["neck"] in self.name_to_idx:
-                    n_idx = self.name_to_idx[self.rig_info.bone_mapping["neck"]]
-                    v_w = self.rest_world_mat[h_idx][:3, 3] - self.rest_world_mat[n_idx][:3, 3]
-                    if float(np.linalg.norm(v_w)) > 1e-5:
-                        self.aim_local["head"] = m_rot.T @ normalize(v_w)
-                if "head" not in self.aim_local:
-                    ch_list = self.children_of.get(h_idx, [])
-                    if ch_list:
-                        v_w = self.rest_world_mat[ch_list[0]][:3, 3] - self.rest_world_mat[h_idx][:3, 3]
-                        if float(np.linalg.norm(v_w)) > 1e-5:
-                            self.aim_local["head"] = m_rot.T @ normalize(v_w)
-                if "head" not in self.aim_local:
-                    self.aim_local["head"] = m_rot.T @ np.array([0.0, 1.0, 0.0])
+                self.aim_local["head"] = m_rot.T @ np.array([0.0, 1.0, 0.0])
 
     def _build_basis_changes(self) -> None:
         """Derive basis change C = F_target^T @ F_skel for all mapped canonical bones."""
@@ -577,25 +562,48 @@ class UniversalTransferSolver:
     def _build_finger_curl_axes(self) -> None:
         """Precompute anatomically correct local flexion curl axes for every finger bone.
         
-        Uses PCA knuckle span orientation across the palm for fingers, and opposition to
-        palm center for thumbs, with sign calibrated to decrease distance to the wrist.
+        Uses knuckle span orientation across the palm for fingers, and opposition toward
+        palm center for thumbs, with sign calibrated strictly into the palmar surface
+        to eliminate any finger inversion or dorsal hyperextension.
         """
         self.finger_curl_axes: Dict[int, np.ndarray] = {}
         for side in ["left", "right"]:
             w_bone = self.rig_info.bone_mapping.get(f"{side}_hand")
             w_idx = self.name_to_idx.get(w_bone)
             p_wrist = self.rest_world_mat[w_idx][:3, 3] if w_idx is not None else np.zeros(3)
+            fa_bone = self.rig_info.bone_mapping.get(f"{side}_forearm")
+            p_fa = (
+                self.rest_world_mat[self.name_to_idx[fa_bone]][:3, 3]
+                if (fa_bone and fa_bone in self.name_to_idx)
+                else (p_wrist - (np.array([1.0, 0.0, 0.0]) if side == "left" else np.array([-1.0, 0.0, 0.0])))
+            )
 
             knuckle_indices = [f[0] for f in self.finger_bones if f[1] == side and f[2] == 1 and not f[3]]
             pts = [self.rest_world_mat[k][:3, 3] for k in knuckle_indices]
-            p_palm_center = np.mean(pts, axis=0) if pts else p_wrist
+            p_palm_center = np.mean(pts, axis=0) * 0.7 + p_wrist * 0.3 if pts else p_wrist
 
-            if len(knuckle_indices) >= 2:
+            # Arm direction from forearm to wrist
+            v_arm = normalize(p_wrist - p_fa, np.array([1.0, 0.0, 0.0]) if side == "left" else np.array([-1.0, 0.0, 0.0]))
+
+            # Knuckle span vector across the hand (index to pinky)
+            k_pts_by_digit = {
+                f[4]: self.rest_world_mat[f[0]][:3, 3]
+                for f in self.finger_bones
+                if f[1] == side and f[2] == 1 and not f[3]
+            }
+            if "index" in k_pts_by_digit and "pinky" in k_pts_by_digit:
+                v_knuckle_span = normalize(k_pts_by_digit["pinky"] - k_pts_by_digit["index"])
+            elif len(pts) >= 2:
                 pts_centered = pts - np.mean(pts, axis=0)
                 _, _, vt = np.linalg.svd(pts_centered)
-                v_knuckle_span = vt[0]
+                v_knuckle_span = normalize(vt[0])
             else:
-                v_knuckle_span = np.array([0.0, 0.0, 1.0])
+                v_knuckle_span = np.array([0.0, 0.0, -1.0])
+
+            # In standard humanoid T-pose / A-pose, palm faces down (-Y) or forward-down.
+            # Normal to the hand surface pointing INTO the palm:
+            n_raw = normalize(np.cross(v_knuckle_span, v_arm), np.array([0.0, -1.0, 0.0]))
+            n_palm = n_raw if n_raw[1] < 0.0 else -n_raw
 
             for f_idx, s, phalanx, is_thumb, digit in self.finger_bones:
                 if s != side:
@@ -604,41 +612,38 @@ class UniversalTransferSolver:
                 ch_list = self.children_of.get(f_idx, [])
                 if ch_list and float(np.linalg.norm(self.rest_local_trans[ch_list[0]])) > 1e-4:
                     d_aim = normalize(self.rest_local_trans[ch_list[0]])
-                    b_len = float(np.linalg.norm(self.rest_local_trans[ch_list[0]]))
                 else:
                     d_aim = np.array([1.0, 0.0, 0.0]) if abs(self.rest_local_mat[f_idx][0, 3]) > abs(self.rest_local_mat[f_idx][1, 3]) else np.array([0.0, 1.0, 0.0])
-                    b_len = 1.0
                 w_rot = _orthonormalize_matrix(self.rest_world_mat[f_idx][:3, :3])
+                d_w = w_rot @ d_aim
 
                 if not is_thumb:
-                    axis_k = w_rot.T @ v_knuckle_span
-                    axis_curl = normalize(axis_k - float(np.dot(axis_k, d_aim)) * d_aim)
-                    # Calibrate curl sign so finger curls towards wrist
-                    rad = np.radians(35.0)
-                    c, s_val = np.cos(rad), np.sin(rad)
-                    u = axis_curl
-                    r_pos = np.eye(3) * c + (1 - c) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
-                    r_neg = np.eye(3) * c + (1 - c) * np.outer(u, u) - np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
-                    tip_pos = p_bone + w_rot @ (r_pos @ d_aim * b_len)
-                    tip_neg = p_bone + w_rot @ (r_neg @ d_aim * b_len)
-                    if np.linalg.norm(tip_pos - p_wrist) > np.linalg.norm(tip_neg - p_wrist):
-                        axis_curl = -axis_curl
-                else:
-                    v_to_palm = normalize(w_rot.T @ (p_palm_center - p_bone))
-                    axis_curl = normalize(np.cross(d_aim, v_to_palm))
-                    if float(np.linalg.norm(axis_curl)) < 1e-3:
-                        axis_curl = np.array([0.0, 0.0, 1.0])
-                    rad = np.radians(35.0)
-                    c, s_val = np.cos(rad), np.sin(rad)
-                    u = axis_curl
-                    r_pos = np.eye(3) * c + (1 - c) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
-                    r_neg = np.eye(3) * c + (1 - c) * np.outer(u, u) - np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_val
-                    tip_pos = p_bone + w_rot @ (r_pos @ d_aim * b_len)
-                    tip_neg = p_bone + w_rot @ (r_neg @ d_aim * b_len)
-                    if np.linalg.norm(tip_pos - p_palm_center) > np.linalg.norm(tip_neg - p_palm_center):
-                        axis_curl = -axis_curl
+                    # Finger flexion hinge axis perpendicular to bone forward direction:
+                    axis_k = v_knuckle_span - float(np.dot(v_knuckle_span, d_w)) * d_w
+                    if float(np.linalg.norm(axis_k)) < 1e-3:
+                        axis_k = np.array([0.0, 0.0, -1.0]) if side == "left" else np.array([0.0, 0.0, 1.0])
+                    axis_w = normalize(axis_k)
 
-                self.finger_curl_axes[f_idx] = axis_curl
+                    # Rotation by +theta around axis_w displaces fingertip by (axis_w x d_w).
+                    # Calibrate sign so displacement points strictly INTO the palmar surface:
+                    disp_w = np.cross(axis_w, d_w)
+                    if float(np.dot(disp_w, n_palm)) < 0.0:
+                        axis_w = -axis_w
+                    axis_curl = w_rot.T @ axis_w
+                else:
+                    # Thumb opposition / flexion rotates across the palm toward the palm center
+                    v_oppose = normalize(p_palm_center - p_bone, -n_palm)
+                    axis_w = normalize(np.cross(d_w, v_oppose))
+                    if float(np.linalg.norm(axis_w)) < 1e-3:
+                        axis_w = normalize(np.cross(d_w, n_palm))
+                    if float(np.linalg.norm(axis_w)) < 1e-3:
+                        axis_w = np.array([0.0, 1.0, 0.0])
+                    disp_w = np.cross(axis_w, d_w)
+                    if float(np.dot(disp_w, v_oppose)) < 0.0:
+                        axis_w = -axis_w
+                    axis_curl = w_rot.T @ axis_w
+
+                self.finger_curl_axes[f_idx] = normalize(axis_curl)
 
     def transfer_motion(
         self,
@@ -914,11 +919,22 @@ class UniversalTransferSolver:
                         r_local = r_bone_rest @ r_canon_f
 
                 elif canon == "neck":
-                    if "head" in joint_pos and "neck" in joint_pos:
-                        v_hn = joint_pos["head"][f] - joint_pos["neck"][f]
+                    if "head" in joint_pos and ("chest" in joint_pos or "neck" in joint_pos):
+                        p_base = joint_pos.get("chest", joint_pos.get("neck"))[f]
+                        v_hn = joint_pos["head"][f] - p_base
                         if float(np.linalg.norm(v_hn)) > 1e-5:
-                            target_w = normalize(v_hn, np.array([0.0, 1.0, 0.0]))
-                            target_in_parent = w_parent.T @ target_w
+                            target_w_raw = normalize(v_hn, np.array([0.0, 1.0, 0.0]))
+                            target_in_parent_raw = w_parent.T @ target_w_raw
+                            if target_in_parent_raw[2] > 0.05:
+                                theta = float(np.arctan2(target_in_parent_raw[2], target_in_parent_raw[1]))
+                                theta_corr = theta - float(np.radians(16.0))
+                                target_in_parent = normalize(np.array([
+                                    target_in_parent_raw[0],
+                                    np.cos(theta_corr),
+                                    np.sin(theta_corr),
+                                ], dtype=np.float64), np.array([0.0, 1.0, 0.0]))
+                            else:
+                                target_in_parent = target_in_parent_raw
                             d_aim = self.aim_local.get("neck", np.array([0.0, 1.0, 0.0]))
                             r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
                             if "head" in self.rig_info.bone_mapping and self.rig_info.bone_mapping["head"] in self.name_to_idx:
@@ -939,11 +955,28 @@ class UniversalTransferSolver:
                         r_local = r_bone_rest
 
                 elif canon == "head":
-                    if "head" in joint_pos and "neck" in joint_pos:
-                        v_hn = joint_pos["head"][f] - joint_pos["neck"][f]
+                    if "head" in joint_pos and ("chest" in joint_pos or "neck" in joint_pos):
+                        p_base = joint_pos.get("chest", joint_pos.get("neck"))[f]
+                        v_hn = joint_pos["head"][f] - p_base
                         if float(np.linalg.norm(v_hn)) > 1e-5:
-                            target_w = normalize(v_hn, np.array([0.0, 1.0, 0.0]))
-                            target_in_parent = w_parent.T @ target_w
+                            target_w_raw = normalize(v_hn, np.array([0.0, 1.0, 0.0]))
+                            n_bone = self.rig_info.bone_mapping.get("neck")
+                            n_idx = self.name_to_idx.get(n_bone) if n_bone else None
+                            p_chest_idx = self.parent_of.get(n_idx) if n_idx is not None else None
+                            w_chest = curr_world_mat[p_chest_idx][:3, :3] if p_chest_idx is not None else w_parent
+                            target_in_chest_raw = w_chest.T @ target_w_raw
+                            if target_in_chest_raw[2] > 0.05:
+                                theta = float(np.arctan2(target_in_chest_raw[2], target_in_chest_raw[1]))
+                                theta_corr = theta - float(np.radians(16.0))
+                                target_in_chest = normalize(np.array([
+                                    target_in_chest_raw[0],
+                                    np.cos(theta_corr),
+                                    np.sin(theta_corr),
+                                ], dtype=np.float64), np.array([0.0, 1.0, 0.0]))
+                            else:
+                                target_in_chest = target_in_chest_raw
+                            target_w_calibrated = w_chest @ target_in_chest
+                            target_in_parent = w_parent.T @ target_w_calibrated
                             d_aim = self.aim_local.get("head", np.array([0.0, 1.0, 0.0]))
                             r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
                             r_local = r_delta @ r_bone_rest
