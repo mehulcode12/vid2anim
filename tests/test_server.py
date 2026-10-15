@@ -110,4 +110,31 @@ def test_server_multipart_missing_fields_rejected(running_server):
         assert "error" in data
 
 
+def test_server_multipart_empty_files_rejected(running_server):
+    """Test that POST /api/animate rejects uploads where media or model file has empty bytes."""
+    from plugins.blender.vid2anim_blender import _encode_multipart_form
+
+    fields = {"device": "cpu", "engine": "mediapipe"}
+    files = {
+        "media": ("test.jpg", b"", "image/jpeg"),
+        "model": ("test.glb", b"", "model/gltf-binary"),
+    }
+    body, ctype = _encode_multipart_form(fields, files)
+
+    req = urllib.request.Request(
+        f"{running_server}/api/animate",
+        data=body,
+        headers={"Content-Type": ctype},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req)
+        assert False, "Should have raised HTTPError 400 for empty file data"
+    except urllib.error.HTTPError as e:
+        assert e.code == 400
+        data = json.loads(e.read().decode("utf-8"))
+        assert "Empty file" in data["error"]
+
+
+
 

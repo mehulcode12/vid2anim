@@ -2186,6 +2186,16 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Missing 'media' or 'model' field in upload"}).encode("utf-8"))
                 return
 
+            media_info = fields["media"]
+            model_info = fields["model"]
+
+            if not isinstance(media_info, dict) or not isinstance(model_info, dict):
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Expected file uploads for 'media' and 'model'"}).encode("utf-8"))
+                return
+
             if not media_info.get("data") or not model_info.get("data"):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
