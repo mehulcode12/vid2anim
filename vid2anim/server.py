@@ -1595,7 +1595,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
                 isModelReady = true;
                 checkReady();
-              }, { binary: true });
+              }, { binary: true, trs: true });
             } else {
               isModelReady = true;
               checkReady();

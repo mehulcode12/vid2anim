@@ -79,7 +79,7 @@ try {
         process.exit(1);
       }
     },
-    { binary: true }
+    { binary: true, trs: true }
   );
 } catch (err) {
   console.error('[FBX_CONVERTER] Error:', err);
