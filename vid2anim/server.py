@@ -47,6 +47,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <style>
     :root {
       --bg-dark: #0a0c10;
@@ -1444,93 +1447,148 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       setTimeout(onWindowResize, 40);
     }
 
-    // GLB Loading
+    // 3D Model Scene Setup & Camera Framing
+    let convertedGLBBlob = null;
+
+    function setupModelInScene(model, animations, isFbx) {
+      if (mixer) mixer.stopAllAction();
+      scene.children.filter(c => c.isGroup || c.isMesh || c.isSkeletonHelper).forEach(c => scene.remove(c));
+
+      // Auto-scale centimeter FBX models (e.g. Mixamo default 100x scale) down to meters
+      const initialBox = new THREE.Box3().setFromObject(model);
+      const initialSize = initialBox.getSize(new THREE.Vector3());
+      if (initialSize.y > 25.0) {
+        model.scale.set(0.01, 0.01, 0.01);
+        model.updateMatrixWorld(true);
+      }
+
+      scene.add(model);
+
+      // Skeleton overlay
+      skeletonHelper = new THREE.SkeletonHelper(model);
+      skeletonHelper.visible = isSkeletonVisible;
+      skeletonHelper.material.linewidth = 2;
+      scene.add(skeletonHelper);
+
+      // Frame camera to character bounding box
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 0.001) {
+        const fov = camera.fov * (Math.PI / 180);
+        let dist = Math.abs(maxDim / (2 * Math.tan(fov / 2))) * 1.4;
+        camera.position.set(center.x, center.y + size.y * 0.1, center.z + dist);
+        camera.near = Math.max(0.01, maxDim / 100);
+        camera.far = Math.max(100, maxDim * 50);
+        camera.updateProjectionMatrix();
+        controls.target.copy(center);
+        controls.maxDistance = maxDim * 10;
+        controls.update();
+
+        const existingGrid = scene.children.find(c => c.name === 'floorGrid');
+        if (existingGrid) scene.remove(existingGrid);
+        const grid = new THREE.GridHelper(maxDim * 3, 20, 0x4f46e5, 0x161b22);
+        grid.name = 'floorGrid';
+        grid.position.y = box.min.y;
+        grid.visible = isGridVisible;
+        scene.add(grid);
+      }
+
+      currentGltfClips = animations || [];
+      if (currentGltfClips.length > 0) {
+        mixer = new THREE.AnimationMixer(model);
+
+        const animSelect = document.getElementById('animSelect');
+        animSelect.innerHTML = '';
+        currentGltfClips.forEach((clip, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = (clip.name || `Track ${idx + 1}`) + ` (${clip.duration.toFixed(1)}s)`;
+          animSelect.appendChild(opt);
+        });
+        animSelect.style.display = currentGltfClips.length > 1 ? 'inline-block' : 'none';
+
+        const targetClip = currentGltfClips.find(a => a.name === 'Vid2Anim_Motion') || currentGltfClips[0];
+        const targetIdx = currentGltfClips.indexOf(targetClip);
+        if (targetIdx >= 0) animSelect.value = targetIdx;
+
+        const times = targetClip.tracks[0] && targetClip.tracks[0].times;
+        if (times && times.length > 1) {
+          const detectedFps = (times.length - 1) / (times[times.length - 1] - times[0]);
+          if (detectedFps > 1) {
+            effectiveFps = Math.round(detectedFps * 100) / 100;
+          }
+        }
+
+        totalDuration = Math.max(totalDuration, targetClip.duration);
+        timeSlider.max = totalDuration;
+
+        currentAction = mixer.clipAction(targetClip);
+        currentAction.play();
+        currentAction.paused = !isPlaying;
+
+        const boneBadgeText = lastAnimatedBoneCount > 0 ? `${lastAnimatedBoneCount} Bones Animated` : `${targetClip.tracks.length} Tracks`;
+        modelMetaBadge.innerText = `${boneBadgeText} • ${targetClip.duration.toFixed(1)}s`;
+      } else {
+        modelMetaBadge.innerText = isFbx ? 'FBX Character Mesh' : 'Static Neutral Mesh';
+      }
+
+      seekTo(0);
+      if (sourceVideo && sourceVideo.src) {
+        play();
+      }
+    }
+
+    // GLB Loading from URL
     function loadGLBModel(url) {
       document.getElementById('modelEmptyState').style.display = 'none';
-
       const loader = new THREE.GLTFLoader();
       loader.load(url, (gltf) => {
-        if (mixer) mixer.stopAllAction();
-        scene.children.filter(c => c.isGroup || c.isMesh || c.isSkeletonHelper).forEach(c => scene.remove(c));
-
-        const model = gltf.scene;
-        scene.add(model);
-
-        // Skeleton overlay
-        skeletonHelper = new THREE.SkeletonHelper(model);
-        skeletonHelper.visible = isSkeletonVisible;
-        skeletonHelper.material.linewidth = 2;
-        scene.add(skeletonHelper);
-
-        // Frame camera to character bounding box
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        if (maxDim > 0.001) {
-          const fov = camera.fov * (Math.PI / 180);
-          let dist = Math.abs(maxDim / (2 * Math.tan(fov / 2))) * 1.4;
-          camera.position.set(center.x, center.y + size.y * 0.1, center.z + dist);
-          camera.near = Math.max(0.01, maxDim / 100);
-          camera.far = Math.max(100, maxDim * 50);
-          camera.updateProjectionMatrix();
-          controls.target.copy(center);
-          controls.maxDistance = maxDim * 10;
-          controls.update();
-
-          const existingGrid = scene.children.find(c => c.name === 'floorGrid');
-          if (existingGrid) scene.remove(existingGrid);
-          const grid = new THREE.GridHelper(maxDim * 3, 20, 0x4f46e5, 0x161b22);
-          grid.name = 'floorGrid';
-          grid.position.y = box.min.y;
-          grid.visible = isGridVisible;
-          scene.add(grid);
-        }
-
-        currentGltfClips = gltf.animations || [];
-        if (currentGltfClips.length > 0) {
-          mixer = new THREE.AnimationMixer(model);
-
-          const animSelect = document.getElementById('animSelect');
-          animSelect.innerHTML = '';
-          currentGltfClips.forEach((clip, idx) => {
-            const opt = document.createElement('option');
-            opt.value = idx;
-            opt.textContent = (clip.name || `Track ${idx + 1}`) + ` (${clip.duration.toFixed(1)}s)`;
-            animSelect.appendChild(opt);
-          });
-          animSelect.style.display = currentGltfClips.length > 1 ? 'inline-block' : 'none';
-
-          const targetClip = currentGltfClips.find(a => a.name === 'Vid2Anim_Motion') || currentGltfClips[0];
-          const targetIdx = currentGltfClips.indexOf(targetClip);
-          if (targetIdx >= 0) animSelect.value = targetIdx;
-
-          const times = targetClip.tracks[0] && targetClip.tracks[0].times;
-          if (times && times.length > 1) {
-            const detectedFps = (times.length - 1) / (times[times.length - 1] - times[0]);
-            if (detectedFps > 1) {
-              effectiveFps = Math.round(detectedFps * 100) / 100;
-            }
-          }
-
-          totalDuration = Math.max(totalDuration, targetClip.duration);
-          timeSlider.max = totalDuration;
-
-          currentAction = mixer.clipAction(targetClip);
-          currentAction.play();
-          currentAction.paused = !isPlaying;
-
-          const boneBadgeText = lastAnimatedBoneCount > 0 ? `${lastAnimatedBoneCount} Bones Animated` : `${targetClip.tracks.length} Tracks`;
-          modelMetaBadge.innerText = `${boneBadgeText} • ${targetClip.duration.toFixed(1)}s`;
-        } else {
-          modelMetaBadge.innerText = 'Static Neutral Mesh';
-        }
-
-        seekTo(0);
-        if (sourceVideo && sourceVideo.src) {
-          play();
-        }
+        setupModelInScene(gltf.scene, gltf.animations || [], false);
       });
+    }
+
+    // Unified Model Asset Loader (supports .glb, .gltf, and .fbx)
+    function loadModelAsset(file) {
+      document.getElementById('modelEmptyState').style.display = 'none';
+      convertedGLBBlob = null;
+
+      const fileName = file.name || 'model';
+      const ext = fileName.split('.').pop().toLowerCase();
+
+      if (ext === 'fbx') {
+        modelMetaBadge.innerText = 'Loading FBX...';
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const buffer = e.target.result;
+            const fbxLoader = new THREE.FBXLoader();
+            const fbx = fbxLoader.parse(buffer, '');
+            setupModelInScene(fbx, fbx.animations || [], true);
+
+            // In-memory conversion to binary GLB so the pipeline can process it seamlessly
+            if (THREE.GLTFExporter) {
+              const exporter = new THREE.GLTFExporter();
+              exporter.parse(fbx, function(glbBuffer) {
+                convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
+                convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
+                modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+              }, { binary: true });
+            }
+          } catch(err) {
+            console.error('FBX parse error:', err);
+            modelMetaBadge.innerText = 'FBX Load Error';
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const url = URL.createObjectURL(file);
+        const loader = new THREE.GLTFLoader();
+        loader.load(url, (gltf) => {
+          setupModelInScene(gltf.scene, gltf.animations || [], false);
+        });
+      }
     }
 
     function switchAnimation(clipIndex) {
@@ -1786,14 +1844,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       document.getElementById('modelName').innerText = file.name;
       document.getElementById('modelPill').style.display = 'flex';
       document.getElementById('modelZone').style.display = 'none';
-      const url = URL.createObjectURL(file);
-      loadGLBModel(url);
+      loadModelAsset(file);
       checkReady();
     }
 
     function clearModel(e) {
       if (e) e.stopPropagation();
       selectedModel = null;
+      convertedGLBBlob = null;
       document.getElementById('modelInput').value = '';
       document.getElementById('modelPill').style.display = 'none';
       document.getElementById('modelZone').style.display = 'block';
@@ -1830,7 +1888,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       });
     }
     wireDragDrop('mediaZone', handleMediaFile);
+    wireDragDrop('videoViewport', handleMediaFile);
     wireDragDrop('modelZone', handleModelFile);
+    wireDragDrop('modelViewport', handleModelFile);
 
     function selectEngine(engine) {
       document.getElementById('selectedEngine').value = engine;
@@ -1880,7 +1940,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
       const formData = new FormData();
       formData.append('media', selectedMedia);
-      formData.append('model', selectedModel);
+      const modelToSend = convertedGLBBlob || selectedModel;
+      const modelUploadName = convertedGLBBlob ? convertedGLBBlob.name : selectedModel.name;
+      formData.append('model', modelToSend, modelUploadName);
       formData.append('device', document.getElementById('deviceSelect').value);
       formData.append('engine', document.getElementById('selectedEngine').value);
 
