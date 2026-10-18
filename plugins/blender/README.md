@@ -27,7 +27,7 @@ Direct 1-click video-to-animation retargeting inside Blender.
 1. **Start the vid2anim Server**:
    In your terminal, start the local server:
    ```bash
-   vid2anim serve --port 8000
+   vid2anim serve --port 8080
    ```
 
 2. **In Blender**:
@@ -36,7 +36,7 @@ Direct 1-click video-to-animation retargeting inside Blender.
    - Click **"Test Connection"** to verify server connectivity.
    - Select your character or armature in the 3D Viewport.
    - Under **Reference Media**, pick your video (`.mp4`, `.mov`, `.webm`) or photo.
-   - Choose your engine (**MediaPipe Pose** or **DWPose WholeBody**) and device (**CPU** / **CUDA**).
+   - Choose your engine (**MediaPipe Pose**, **DWPose WholeBody**, or **GVHMR Studio**) and device (**CPU** / **CUDA**).
    - Click **"Animate Selected Armature"**.
 
 3. **Result**:

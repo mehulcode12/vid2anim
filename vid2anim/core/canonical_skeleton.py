@@ -1,8 +1,7 @@
 """Canonical Humanoid Skeleton & Forward Kinematics (FK) Retargeter.
 
 Solves per-frame local rotations hierarchically on a clean, standardized 3D humanoid
-armature using exact SO(3) Lie group kinematics, following the principles of
-Motion2MixamoRig and GVHMR.
+armature using exact SO(3) Lie group kinematics.
 """
 
 from __future__ import annotations
@@ -199,9 +198,9 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_world["spine1"] = r_world["spine"] @ r_spine1
 
         # Chest: Torso chest frame from collar lateral and spine-to-neck up
-        p_l_sh = get_pos("left_shoulder", f)
-        p_r_sh = get_pos("right_shoulder", f)
-        chest_lat = p_l_sh - p_r_sh
+        p_l_collar = get_pos("left_collar", f) if "left_collar" in motion.joint_positions else get_pos("left_shoulder", f)
+        p_r_collar = get_pos("right_collar", f) if "right_collar" in motion.joint_positions else get_pos("right_shoulder", f)
+        chest_lat = p_l_collar - p_r_collar
         chest_up = p_neck - p_spine1
         r_chest_world = orthonormal_frame(chest_lat, chest_up)
         r_chest_local = r_world["spine1"].T @ r_chest_world
@@ -241,18 +240,20 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["head"] = r_head
         r_world["head"] = r_world["neck"] @ r_head
 
-        # 3. Left Arm Chain (chest -> left_shoulder -> left_arm -> left_forearm -> left_hand)
+        # 3. Left Arm Chain (chest -> left_collar -> left_shoulder -> left_arm -> left_forearm -> left_hand)
+        p_l_sh = get_pos("left_shoulder", f)
         p_l_elbow = get_pos("left_forearm", f)
         p_l_wrist = get_pos("left_hand", f)
+        p_l_fingers = get_pos("left_fingers", f) if "left_fingers" in motion.joint_positions else (p_l_wrist + (p_l_wrist - p_l_elbow) * 0.35)
 
-        # Shoulder (collar)
-        v_l_sh = p_l_sh - p_chest
+        # Shoulder (collar / clavicle bone)
+        v_l_sh = p_l_sh - p_l_collar
         d_l_sh_in_anim = r_world["chest"].T @ normalize(v_l_sh, np.array([1.0, 0.0, 0.0]))
         r_l_sh = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_shoulder"], d_l_sh_in_anim)
         r_anim["left_shoulder"] = r_l_sh
         r_world["left_shoulder"] = r_world["chest"] @ r_l_sh
 
-        # Upper arm
+        # Upper arm (shoulder ball joint to elbow)
         v_l_arm = p_l_elbow - p_l_sh
         d_l_arm_in_anim = r_world["left_shoulder"].T @ normalize(v_l_arm, np.array([1.0, 0.0, 0.0]))
         r_l_arm = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_arm"], d_l_arm_in_anim)
@@ -260,7 +261,7 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["left_arm"] = r_l_arm
         r_world["left_arm"] = r_world["left_shoulder"] @ r_l_arm
 
-        # Forearm
+        # Forearm (elbow to wrist)
         v_l_fa = p_l_wrist - p_l_elbow
         d_l_fa_in_anim = r_world["left_arm"].T @ normalize(v_l_fa, np.array([1.0, 0.0, 0.0]))
         r_l_fa = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_forearm"], d_l_fa_in_anim)
@@ -268,24 +269,27 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["left_forearm"] = r_l_fa
         r_world["left_forearm"] = r_world["left_arm"] @ r_l_fa
 
-        v_l_hand = p_l_wrist - p_l_elbow
+        # Hand (wrist to fingers)
+        v_l_hand = p_l_fingers - p_l_wrist
         d_l_hand_in_anim = r_world["left_forearm"].T @ normalize(v_l_hand, np.array([1.0, 0.0, 0.0]))
         r_l_hand = rotation_aligning(CANONICAL_REST_LOCAL_DIR["left_hand"], d_l_hand_in_anim)
         r_anim["left_hand"] = r_l_hand
         r_world["left_hand"] = r_world["left_forearm"] @ r_l_hand
 
-        # 4. Right Arm Chain (chest -> right_shoulder -> right_arm -> right_forearm -> right_hand)
+        # 4. Right Arm Chain (chest -> right_collar -> right_shoulder -> right_arm -> right_forearm -> right_hand)
+        p_r_sh = get_pos("right_shoulder", f)
         p_r_elbow = get_pos("right_forearm", f)
         p_r_wrist = get_pos("right_hand", f)
+        p_r_fingers = get_pos("right_fingers", f) if "right_fingers" in motion.joint_positions else (p_r_wrist + (p_r_wrist - p_r_elbow) * 0.35)
 
-        # Shoulder (collar)
-        v_r_sh = p_r_sh - p_chest
+        # Shoulder (collar / clavicle bone)
+        v_r_sh = p_r_sh - p_r_collar
         d_r_sh_in_anim = r_world["chest"].T @ normalize(v_r_sh, np.array([-1.0, 0.0, 0.0]))
         r_r_sh = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_shoulder"], d_r_sh_in_anim)
         r_anim["right_shoulder"] = r_r_sh
         r_world["right_shoulder"] = r_world["chest"] @ r_r_sh
 
-        # Upper arm
+        # Upper arm (shoulder ball joint to elbow)
         v_r_arm = p_r_elbow - p_r_sh
         d_r_arm_in_anim = r_world["right_shoulder"].T @ normalize(v_r_arm, np.array([-1.0, 0.0, 0.0]))
         r_r_arm = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_arm"], d_r_arm_in_anim)
@@ -293,7 +297,7 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["right_arm"] = r_r_arm
         r_world["right_arm"] = r_world["right_shoulder"] @ r_r_arm
 
-        # Forearm
+        # Forearm (elbow to wrist)
         v_r_fa = p_r_wrist - p_r_elbow
         d_r_fa_in_anim = r_world["right_arm"].T @ normalize(v_r_fa, np.array([-1.0, 0.0, 0.0]))
         r_r_fa = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_forearm"], d_r_fa_in_anim)
@@ -301,7 +305,8 @@ def solve_canonical_motion(motion: MotionSequence) -> CanonicalMotion:
         r_anim["right_forearm"] = r_r_fa
         r_world["right_forearm"] = r_world["right_arm"] @ r_r_fa
 
-        v_r_hand = p_r_wrist - p_r_elbow
+        # Hand (wrist to fingers)
+        v_r_hand = p_r_fingers - p_r_wrist
         d_r_hand_in_anim = r_world["right_forearm"].T @ normalize(v_r_hand, np.array([-1.0, 0.0, 0.0]))
         r_r_hand = rotation_aligning(CANONICAL_REST_LOCAL_DIR["right_hand"], d_r_hand_in_anim)
         r_anim["right_hand"] = r_r_hand

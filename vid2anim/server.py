@@ -14,9 +14,10 @@ import json
 import os
 import socketserver
 import tempfile
+import time
 import urllib.parse
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from .core.rig_detector import inspect_model
 from .pipeline import PipelineConfig, Vid2AnimPipeline
@@ -29,6 +30,8 @@ PIPELINE_PROGRESS: Dict[str, Any] = {
     "percent": 0,
     "step": "Idle",
     "message": "Ready",
+    "detail": "",
+    "logs": [],
 }
 
 
@@ -379,6 +382,97 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       justify-content: space-between;
       align-items: center;
     }
+
+    .status-subdetail {
+      font-size: 0.68rem;
+      color: #38bdf8;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activity-console {
+      margin-top: 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #06080b;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .activity-console-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .activity-console-header:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .activity-console-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .activity-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+      animation: pulseAnim 1.5s infinite;
+    }
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    .activity-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--text-dim);
+    }
+    .activity-console-body {
+      max-height: 110px;
+      overflow-y: auto;
+      padding: 6px 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.64rem;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .activity-console-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .activity-console-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+    .activity-log-line {
+      color: #94a3b8;
+      word-break: break-all;
+    }
+    .activity-log-line.dim { color: #64748b; }
+    .activity-log-line.highlight { color: #38bdf8; }
+    .activity-log-line.success { color: #34d399; }
+    .activity-log-line.extract { color: #a78bfa; }
 
     .download-btn {
       background: rgba(16, 185, 129, 0.1);
@@ -1010,6 +1104,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           <button type="button" class="segment-btn" id="engineCardDwpose" onclick="selectEngine('dwpose')">
             DWPose WholeBody
           </button>
+          <button type="button" class="segment-btn" id="engineCardGvhmr" onclick="selectEngine('gvhmr')">
+            GVHMR Studio (3D HMR)
+          </button>
         </div>
         <input type="hidden" id="selectedEngine" value="mediapipe">
 
@@ -1046,6 +1143,21 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <div class="status-detail">
           <span id="statusText">Preparing assets...</span>
           <span id="statusTimer" style="font-family:'JetBrains Mono'">00:00.0s</span>
+        </div>
+        <div id="statusSubDetail" class="status-subdetail" style="display:none"></div>
+
+        <!-- Live Activity Log Console -->
+        <div class="activity-console">
+          <div class="activity-console-header" onclick="toggleActivityLogs()">
+            <div class="activity-console-title">
+              <span class="activity-pulse"></span>
+              <span>Live Activity Console</span>
+            </div>
+            <span id="activityLogCount" class="activity-badge">0 events</span>
+          </div>
+          <div id="activityLogsBody" class="activity-console-body">
+            <div class="activity-log-line dim">Initializing pipeline engine...</div>
+          </div>
         </div>
       </div>
 
@@ -1280,7 +1392,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           curTime = sourceVideo.currentTime;
           if (mixer && currentAction) {
             const clipDur = currentAction.getClip().duration;
-            const animTime = clipDur > 0 ? (curTime % clipDur) : 0;
+            const animTime = clipDur > 0 ? Math.min(clipDur, Math.max(0, curTime)) : 0;
             mixer.setTime(animTime);
           }
         } else if (mixer && currentAction && !currentAction.paused) {
@@ -1393,6 +1505,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           const targetIdx = currentGltfClips.indexOf(targetClip);
           if (targetIdx >= 0) animSelect.value = targetIdx;
 
+          const times = targetClip.tracks[0] && targetClip.tracks[0].times;
+          if (times && times.length > 1) {
+            const detectedFps = (times.length - 1) / (times[times.length - 1] - times[0]);
+            if (detectedFps > 1) {
+              effectiveFps = Math.round(detectedFps * 100) / 100;
+            }
+          }
+
           totalDuration = Math.max(totalDuration, targetClip.duration);
           timeSlider.max = totalDuration;
 
@@ -1477,7 +1597,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       if (sourceVideo && sourceVideo.src) sourceVideo.currentTime = t;
       if (mixer && currentAction) {
         const clipDur = currentAction.getClip().duration;
-        const animTime = clipDur > 0 ? (t % clipDur) : 0;
+        const animTime = clipDur > 0 ? Math.min(clipDur, Math.max(0, t)) : 0;
         mixer.setTime(animTime);
       }
       updateTimeDisplays(t);
@@ -1609,7 +1729,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       .then(d => {
         const badge = document.getElementById('deviceBadge');
         badge.innerText = d.cuda_available ? 'CUDA' : 'CPU';
-      });
+      })
+      .catch(() => {});
 
     document.getElementById('mediaInput').addEventListener('change', (e) => {
       if (e.target.files[0]) {
@@ -1715,6 +1836,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       document.getElementById('selectedEngine').value = engine;
       document.getElementById('engineCardMediapipe').classList.toggle('active', engine === 'mediapipe');
       document.getElementById('engineCardDwpose').classList.toggle('active', engine === 'dwpose');
+      const gvhmrBtn = document.getElementById('engineCardGvhmr');
+      if (gvhmrBtn) gvhmrBtn.classList.toggle('active', engine === 'gvhmr');
     }
 
     function checkReady() {
@@ -1741,6 +1864,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       statusText.innerText = 'Preparing assets and initializing ML engine...';
       statusPercent.innerText = '0%';
       progressBar.style.width = '0%';
+      document.getElementById('statusSubDetail').style.display = 'none';
+      document.getElementById('statusSubDetail').innerText = '';
+      document.getElementById('activityLogsBody').innerHTML = '<div class="activity-log-line dim">Pipeline initialized. Waiting for engine milestones...</div>';
+      document.getElementById('activityLogCount').innerText = '0 events';
 
       [pill1, pill2, pill3, pill4].forEach(p => p.className = 'step-pill');
       pill1.classList.add('active');
@@ -1767,6 +1894,28 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
               progressBar.style.width = data.percent + '%';
               statusPercent.innerText = data.percent + '%';
               statusText.innerText = data.message || 'Extracting motion...';
+
+              const subEl = document.getElementById('statusSubDetail');
+              if (data.detail) {
+                subEl.style.display = 'block';
+                subEl.innerText = data.detail;
+              } else {
+                subEl.style.display = 'none';
+              }
+
+              if (Array.isArray(data.logs) && data.logs.length > 0) {
+                const logsBody = document.getElementById('activityLogsBody');
+                const badge = document.getElementById('activityLogCount');
+                badge.innerText = `${data.logs.length} events`;
+                logsBody.innerHTML = data.logs.map(line => {
+                  let cls = 'activity-log-line';
+                  if (line.includes('EXTRACT') || line.includes('GVHMR')) cls += ' extract';
+                  else if (line.includes('Download') || line.includes('Fetch')) cls += ' highlight';
+                  else if (line.includes('Complete') || line.includes('PACK') || line.includes('ready')) cls += ' success';
+                  return `<div class="${cls}">${escapeHtml(line)}</div>`;
+                }).join('');
+                logsBody.scrollTop = logsBody.scrollHeight;
+              }
 
               if (data.percent < 15) {
                 pill1.className = 'step-pill active';
@@ -1834,7 +1983,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         clearInterval(progressTimer);
         clearInterval(timerInterval);
         statusTitle.innerText = 'Pipeline Error';
-        statusText.innerText = err.message;
+        let msg = err.message || 'Animation pipeline failed';
+        if (msg === 'Failed to fetch' || msg.includes('fetch')) {
+          msg = 'Connection to vid2anim server lost (Server was restarted or socket disconnected). Please click "Generate 3D Animation" to retry.';
+        }
+        statusText.innerText = msg;
         statusPercent.innerText = '0%';
         progressBar.style.width = '0%';
       } finally {
@@ -1850,6 +2003,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       a.href = lastResultBlobUrl;
       a.download = (selectedModel ? selectedModel.name.replace(/\.[^/.]+$/, '') : 'character') + '_animated.glb';
       a.click();
+    }
+
+    function toggleActivityLogs() {
+      const logsBody = document.getElementById('activityLogsBody');
+      if (!logsBody) return;
+      logsBody.style.display = logsBody.style.display === 'none' ? 'flex' : 'none';
     }
 
     window.onload = init3D;
@@ -2080,6 +2239,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
     """Handles API requests and serves the interactive 3D Web UI."""
 
+    def end_headers(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Access-Control-Expose-Headers", "X-Animated-Bones, Content-Disposition")
+        super().end_headers()
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(200)
+        self.end_headers()
+
     def do_GET(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
 
@@ -2208,7 +2378,7 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
             engine_str = fields.get("engine", "mediapipe")
             engine_str = engine_str.strip().lower() if isinstance(engine_str, str) else "mediapipe"
 
-            def on_progress(step: str, progress: float, message: str) -> None:
+            def on_progress(step: str, progress: float, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
                 if step == "EXTRACT":
                     pct = 10 + int(progress * 55)
                 elif step == "RETARGET":
@@ -2224,11 +2394,23 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                 PIPELINE_PROGRESS["percent"] = max(PIPELINE_PROGRESS.get("percent", 0), pct)
                 PIPELINE_PROGRESS["step"] = step
                 PIPELINE_PROGRESS["message"] = message
+                detail_val = (extra.get("detail", "") if isinstance(extra, dict) else "")
+                PIPELINE_PROGRESS["detail"] = detail_val
+
+                now_str = time.strftime("%H:%M:%S")
+                log_entry = f"[{now_str}] [{step}] {message}"
+                logs_list = PIPELINE_PROGRESS.setdefault("logs", [])
+                if not logs_list or logs_list[-1] != log_entry:
+                    logs_list.append(log_entry)
+                    if len(logs_list) > 60:
+                        del logs_list[0]
 
             PIPELINE_PROGRESS["active"] = True
             PIPELINE_PROGRESS["percent"] = 5
             PIPELINE_PROGRESS["step"] = "EXTRACT"
             PIPELINE_PROGRESS["message"] = f"Initializing tracking pipeline ({engine_str.upper()})..."
+            PIPELINE_PROGRESS["detail"] = "Preparing model environment..."
+            PIPELINE_PROGRESS["logs"] = [f"[{time.strftime('%H:%M:%S')}] [INIT] Pipeline started with engine: {engine_str.upper()} on device: {device_str.upper()}"]
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dir = Path(tmpdir)
@@ -2276,7 +2458,6 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "model/gltf-binary")
                 self.send_header("Content-Length", str(len(glb_data)))
                 self.send_header("X-Animated-Bones", str(result.mapped_bones_count))
-                self.send_header("Access-Control-Expose-Headers", "X-Animated-Bones")
                 self.end_headers()
                 self.wfile.write(glb_data)
 
@@ -2296,8 +2477,48 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
 
 
+class TeeLogger:
+    def __init__(self, original_stream, logs_list: List[str], max_logs: int = 60) -> None:
+        self.orig = original_stream
+        self.logs_list = logs_list
+        self.max_logs = max_logs
+        self.buf = ""
+
+    def write(self, s: str) -> None:
+        try:
+            self.orig.write(s)
+            self.orig.flush()
+        except Exception:
+            pass
+        self.buf += s
+        if "\n" in self.buf or "\r" in self.buf:
+            lines = self.buf.replace("\r", "\n").split("\n")
+            for line in lines[:-1]:
+                clean = line.strip()
+                if clean:
+                    if "%" in clean and ("M/" in clean or "B/" in clean or "it/s" in clean or "s/it" in clean):
+                        PIPELINE_PROGRESS["detail"] = clean
+                    now_str = time.strftime("%H:%M:%S")
+                    entry = f"[{now_str}] {clean}"
+                    if not self.logs_list or self.logs_list[-1] != entry:
+                        self.logs_list.append(entry)
+                        if len(self.logs_list) > self.max_logs:
+                            del self.logs_list[0]
+            self.buf = lines[-1]
+
+    def flush(self) -> None:
+        try:
+            self.orig.flush()
+        except Exception:
+            pass
+
+
 def start_server(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Launch the built-in local web server."""
+    try:
+        sys.stderr = TeeLogger(sys.stderr, PIPELINE_PROGRESS["logs"])
+    except Exception:
+        pass
     with ThreadedTCPServer((host, port), Vid2AnimHTTPHandler) as httpd:
         print("=" * 60)
         print(f" vid2anim Web UI & API Server running at:")

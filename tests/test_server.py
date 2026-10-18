@@ -136,5 +136,69 @@ def test_server_multipart_empty_files_rejected(running_server):
         assert "Empty file" in data["error"]
 
 
+def test_server_animate_pipeline_execution(running_server, tmp_path):
+    """Test that POST /api/animate executes pipeline successfully with logs and no NameError."""
+    from plugins.blender.vid2anim_blender import _encode_multipart_form
+    from vid2anim.utils.fixtures import create_synthetic_humanoid_glb
+    import cv2
+    import numpy as np
 
+    # Generate synthetic character GLB
+    glb_path = tmp_path / "test_char.glb"
+    create_synthetic_humanoid_glb(glb_path)
+    glb_bytes = glb_path.read_bytes()
+
+    # Generate a tiny 5-frame synthetic MP4
+    video_path = tmp_path / "test_clip.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(str(video_path), fourcc, 15.0, (128, 128))
+    for _ in range(5):
+        frame = np.full((128, 128, 3), 120, dtype=np.uint8)
+        out.write(frame)
+    out.release()
+    vid_bytes = video_path.read_bytes()
+
+    fields = {"device": "cpu", "engine": "mediapipe"}
+    files = {
+        "media": ("test_clip.mp4", vid_bytes, "video/mp4"),
+        "model": ("test_char.glb", glb_bytes, "model/gltf-binary"),
+    }
+    body, ctype = _encode_multipart_form(fields, files)
+
+    req = urllib.request.Request(
+        f"{running_server}/api/animate",
+        data=body,
+        headers={"Content-Type": ctype},
+        method="POST",
+    )
+    with urllib.request.urlopen(req) as resp:
+        assert resp.status == 200
+        output_glb = resp.read()
+        assert len(output_glb) > 1000
+        assert output_glb[:4] == b"glTF"
+
+    # Verify progress logs recorded timestamps without error
+    prog_req = urllib.request.urlopen(f"{running_server}/api/progress")
+    prog_data = json.loads(prog_req.read().decode("utf-8"))
+    assert "logs" in prog_data
+    assert len(prog_data["logs"]) > 0
+    assert "[" in prog_data["logs"][0]
+
+
+def test_server_cors_and_options_preflight(running_server):
+    # Test GET endpoint has CORS headers
+    req = urllib.request.urlopen(f"{running_server}/api/diagnostics")
+    assert req.headers.get("Access-Control-Allow-Origin") == "*"
+    assert "GET" in req.headers.get("Access-Control-Allow-Methods", "")
+
+    # Test OPTIONS preflight
+    options_req = urllib.request.Request(
+        f"{running_server}/api/animate",
+        headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "POST"},
+        method="OPTIONS",
+    )
+    with urllib.request.urlopen(options_req) as resp:
+        assert resp.status == 200
+        assert resp.headers.get("Access-Control-Allow-Origin") == "*"
+        assert "POST" in resp.headers.get("Access-Control-Allow-Methods", "")
 

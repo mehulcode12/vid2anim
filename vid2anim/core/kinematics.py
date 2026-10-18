@@ -1,6 +1,5 @@
 """Advanced Kinematics and SO(3) Lie Algebra for Skeletal Retargeting.
 
-Ported and generalized from reference production pipelines (Motion2MixamoRig / GVHMR).
 Provides:
 - Shortest-path Rodrigues swing rotation aligning
 - Orthonormal basis frame construction

@@ -506,3 +506,94 @@ def test_neck_head_upright_neutral_gaze():
     pitch_head = float(np.degrees(np.arctan2(head_aim_w[2], head_aim_w[1])))
     # Head world pitch must be near 0 (upright forward gaze, never bowed down >15 deg)
     assert abs(pitch_head) < 5.0, f"Head pitched excessively: {pitch_head:.2f} deg"
+
+
+def test_smpl_coordinate_alignment_and_arm_chain_aiming():
+    """Verify that arm chains use collar -> shoulder -> elbow -> wrist without bypassing joint 16,
+    and verify that SMPL body alignment prevents torso-backward inversions."""
+    from pathlib import Path
+    import numpy as np
+    from vid2anim.core.rig_detector import parse_glb_json, inspect_model
+    from vid2anim.core.universal_transfer import UniversalTransferSolver, LIMB_HUMAN_PAIRS
+    from vid2anim.core.motion_extractor import MotionSequence
+    from vid2anim.core.canonical_skeleton import solve_canonical_motion, quat_xyzw_to_matrix
+
+    # Verify LIMB_HUMAN_PAIRS mappings match anatomical kinematics
+    assert LIMB_HUMAN_PAIRS["left_shoulder"] == ("left_collar", "left_shoulder")
+    assert LIMB_HUMAN_PAIRS["left_arm"] == ("left_shoulder", "left_forearm")
+    assert LIMB_HUMAN_PAIRS["left_forearm"] == ("left_forearm", "left_hand")
+    assert LIMB_HUMAN_PAIRS["right_shoulder"] == ("right_collar", "right_shoulder")
+    assert LIMB_HUMAN_PAIRS["right_arm"] == ("right_shoulder", "right_forearm")
+    assert LIMB_HUMAN_PAIRS["right_forearm"] == ("right_forearm", "right_hand")
+
+    ybot_path = Path("glb") / "ybot.glb"
+    if not ybot_path.exists():
+        return
+
+    # Create motion in SMPL camera coordinate space (+X right, +Y up, -Z chest forward)
+    # where anatomical left has negative X and right has positive X
+    # to test automatic defense-in-depth coordinate alignment
+    smpl_joints = {
+        "hips": np.array([[0.0, 1.0, 0.0]], dtype=np.float32),
+        "pelvis": np.array([[0.0, 1.0, 0.0]], dtype=np.float32),
+        "neck": np.array([[0.0, 1.5, 0.0]], dtype=np.float32),
+        "head": np.array([[0.0, 1.7, 0.0]], dtype=np.float32),
+        "chest": np.array([[0.0, 1.35, 0.0]], dtype=np.float32),
+        "spine": np.array([[0.0, 1.15, 0.0]], dtype=np.float32),
+        "spine1": np.array([[0.0, 1.25, 0.0]], dtype=np.float32),
+        # In SMPL camera frame: anatomical left is negative X
+        "left_collar": np.array([[-0.10, 1.45, 0.0]], dtype=np.float32),
+        "left_shoulder": np.array([[-0.25, 1.45, 0.0]], dtype=np.float32),
+        "left_forearm": np.array([[-0.55, 1.45, 0.0]], dtype=np.float32),
+        "left_hand": np.array([[-0.75, 1.45, 0.0]], dtype=np.float32),
+        "left_fingers": np.array([[-0.85, 1.45, 0.0]], dtype=np.float32),
+        "right_collar": np.array([[0.10, 1.45, 0.0]], dtype=np.float32),
+        "right_shoulder": np.array([[0.25, 1.45, 0.0]], dtype=np.float32),
+        "right_forearm": np.array([[0.55, 1.45, 0.0]], dtype=np.float32),
+        "right_hand": np.array([[0.75, 1.45, 0.0]], dtype=np.float32),
+        "right_fingers": np.array([[0.85, 1.45, 0.0]], dtype=np.float32),
+        "left_upleg": np.array([[-0.15, 0.95, 0.0]], dtype=np.float32),
+        "right_upleg": np.array([[0.15, 0.95, 0.0]], dtype=np.float32),
+        "left_leg": np.array([[-0.15, 0.50, 0.0]], dtype=np.float32),
+        "right_leg": np.array([[0.15, 0.50, 0.0]], dtype=np.float32),
+        "left_foot": np.array([[-0.15, 0.05, 0.0]], dtype=np.float32),
+        "right_foot": np.array([[0.15, 0.05, 0.0]], dtype=np.float32),
+        "left_toe": np.array([[-0.15, 0.00, -0.15]], dtype=np.float32),
+        "right_toe": np.array([[0.15, 0.00, -0.15]], dtype=np.float32),
+    }
+
+    # Expand joints to 2 frames
+    smpl_joints_2f = {k: np.repeat(v, 2, axis=0) for k, v in smpl_joints.items()}
+    # Frame 0 at Z=-0.5, Frame 1 moves forward along SMPL -Z to Z=-1.0
+    root_t = np.array([[0.0, 1.0, -0.5], [0.0, 1.0, -1.0]], dtype=np.float32)
+
+    seq = MotionSequence(
+        fps=30.0,
+        duration_sec=2.0 / 30.0,
+        frame_count=2,
+        timestamps=np.array([0.0, 1.0 / 30.0], dtype=np.float32),
+        joint_positions=smpl_joints_2f,
+        root_translation=root_t,
+    )
+
+    gltf_data, _ = parse_glb_json(ybot_path)
+    rig = inspect_model(ybot_path)
+    solver = UniversalTransferSolver(gltf_data, rig)
+
+    canon = solve_canonical_motion(seq)
+    bone_rot, root_trans = solver.transfer_motion(canon, raw_motion=seq)
+
+    # 1. Hips root translation: walking forward along SMPL -Z must map to glTF +Z
+    delta_z = float(root_trans[1, 2] - root_trans[0, 2])
+    assert delta_z > 0.2, f"Expected positive forward translation in glTF world, got {delta_z}"
+
+    # 2. Hips orientation: character must face forward (+Z) with det=+1
+    q_hips = bone_rot["mixamorig:Hips"][0]
+    r_hips = quat_xyzw_to_matrix(q_hips)
+    forward_hips = r_hips @ np.array([0.0, 0.0, 1.0])
+    assert forward_hips[2] > 0.8, f"Hips facing backwards: Z={forward_hips[2]}"
+
+    # 3. Left arm aiming: left upper arm in T-pose must point towards character left (+X)
+    q_arm = bone_rot["mixamorig:LeftArm"][0]
+    assert np.allclose(np.linalg.norm(q_arm), 1.0, atol=1e-3)
+

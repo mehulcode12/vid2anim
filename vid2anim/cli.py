@@ -42,7 +42,7 @@ def main() -> None:
     extract_parser.add_argument("--input", "-i", required=True, help="Path to input photo or video (.mp4, .mov, .jpg, .png)")
     extract_parser.add_argument("--output", "-o", default="outputs/motion_cache.npz", help="Output path for cached .npz")
     extract_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
-    extract_parser.add_argument("--engine", choices=["mediapipe", "dwpose"], default="mediapipe", help="Motion tracking engine (default: mediapipe)")
+    extract_parser.add_argument("--engine", choices=["mediapipe", "dwpose", "gvhmr"], default="mediapipe", help="Motion tracking engine (mediapipe [fast CPU], dwpose [133-pt], gvhmr [3D HMR]) (default: mediapipe)")
     extract_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds (default: 30.0)")
 
     # Command: retarget
@@ -63,7 +63,7 @@ def main() -> None:
     run_parser.add_argument("--output", "-o", default=None, help="Output animated .glb path (default: outputs/<name>_animated.glb)")
     run_parser.add_argument("--bvh", default=None, help="Optional output path to export standard .bvh mocap")
     run_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
-    run_parser.add_argument("--engine", choices=["mediapipe", "dwpose"], default="mediapipe", help="Motion tracking engine (default: mediapipe)")
+    run_parser.add_argument("--engine", choices=["mediapipe", "dwpose", "gvhmr"], default="mediapipe", help="Motion tracking engine (mediapipe [fast CPU], dwpose [133-pt], gvhmr [3D HMR]) (default: mediapipe)")
     run_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds (default: 30.0)")
     run_parser.add_argument("--no-smooth", action="store_true", help="Disable temporal anti-jitter filter")
     run_parser.add_argument("--rest-pose", choices=["auto", "t_pose", "a_pose_30", "a_pose_45"], default="auto", help="Target model rest pose alignment (default: auto)")

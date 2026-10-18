@@ -217,7 +217,7 @@ def create_synthetic_motion_sequence(frames: int = 30, fps: float = 30.0) -> Mot
     t = np.linspace(0.0, frames / fps, frames, dtype=np.float32)
     joint_positions: Dict[str, np.ndarray] = {}
 
-    for j_name in CANONICAL_JOINTS:
+    for j_name in list(CANONICAL_JOINTS) + ["left_collar", "right_collar", "left_fingers", "right_fingers"]:
         pos = np.zeros((frames, 3), dtype=np.float32)
         # Base heights
         if "hips" in j_name:
@@ -230,28 +230,40 @@ def create_synthetic_motion_sequence(frames: int = 30, fps: float = 30.0) -> Mot
             pos[:, 1] = 1.55
         elif "head" in j_name:
             pos[:, 1] = 1.7
-        elif "left_shoulder" in j_name:
-            pos[:, 0] = 0.2
+        elif j_name == "left_collar":
+            pos[:, 0] = 0.15
             pos[:, 1] = 1.45
-        elif "left_arm" in j_name:
-            pos[:, 0] = 0.45
+        elif j_name == "left_shoulder":
+            pos[:, 0] = 0.35
+            pos[:, 1] = 1.45
+        elif j_name == "left_arm":
+            pos[:, 0] = 0.35
             pos[:, 1] = 1.45 + 0.2 * np.sin(t * 6.0)  # Arm waving
-        elif "left_forearm" in j_name:
-            pos[:, 0] = 0.70
+        elif j_name == "left_forearm":
+            pos[:, 0] = 0.60
             pos[:, 1] = 1.45 + 0.3 * np.sin(t * 6.0)
-        elif "left_hand" in j_name:
+        elif j_name == "left_hand":
+            pos[:, 0] = 0.80
+            pos[:, 1] = 1.45 + 0.35 * np.sin(t * 6.0)
+        elif j_name == "left_fingers":
             pos[:, 0] = 0.90
             pos[:, 1] = 1.45 + 0.35 * np.sin(t * 6.0)
-        elif "right_shoulder" in j_name:
-            pos[:, 0] = -0.2
+        elif j_name == "right_collar":
+            pos[:, 0] = -0.15
             pos[:, 1] = 1.45
-        elif "right_arm" in j_name:
-            pos[:, 0] = -0.45
+        elif j_name == "right_shoulder":
+            pos[:, 0] = -0.35
             pos[:, 1] = 1.45
-        elif "right_forearm" in j_name:
-            pos[:, 0] = -0.70
+        elif j_name == "right_arm":
+            pos[:, 0] = -0.35
             pos[:, 1] = 1.45
-        elif "right_hand" in j_name:
+        elif j_name == "right_forearm":
+            pos[:, 0] = -0.60
+            pos[:, 1] = 1.45
+        elif j_name == "right_hand":
+            pos[:, 0] = -0.80
+            pos[:, 1] = 1.45
+        elif j_name == "right_fingers":
             pos[:, 0] = -0.90
             pos[:, 1] = 1.45
         elif "left_upleg" in j_name or "left_leg" in j_name:
@@ -260,10 +272,28 @@ def create_synthetic_motion_sequence(frames: int = 30, fps: float = 30.0) -> Mot
         elif "right_upleg" in j_name or "right_leg" in j_name:
             pos[:, 0] = -0.15
             pos[:, 1] = 0.5
+        elif "toe" in j_name:
+            pos[:, 1] = 0.00
+            pos[:, 2] = 0.15
         elif "foot" in j_name:
             pos[:, 1] = 0.05
 
         joint_positions[j_name] = pos
+
+    # Ensure anatomical aliases are populated
+    joint_positions["pelvis"] = joint_positions["hips"]
+    joint_positions["spine2"] = joint_positions.get("spine1", joint_positions["spine"])
+    joint_positions["spine3"] = joint_positions["chest"]
+    joint_positions["left_hip"] = joint_positions["left_upleg"]
+    joint_positions["right_hip"] = joint_positions["right_upleg"]
+    joint_positions["left_knee"] = joint_positions["left_leg"]
+    joint_positions["right_knee"] = joint_positions["right_leg"]
+    joint_positions["left_ankle"] = joint_positions["left_foot"]
+    joint_positions["right_ankle"] = joint_positions["right_foot"]
+    joint_positions["left_elbow"] = joint_positions["left_forearm"]
+    joint_positions["right_elbow"] = joint_positions["right_forearm"]
+    joint_positions["left_wrist"] = joint_positions["left_hand"]
+    joint_positions["right_wrist"] = joint_positions["right_hand"]
 
     root_translation = np.zeros((frames, 3), dtype=np.float32)
     root_translation[:, 1] = 1.0 + 0.05 * np.sin(t * 3.0)

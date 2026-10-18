@@ -110,8 +110,9 @@ if bpy:
             name="Tracking Engine",
             description="AI motion tracking model to use for extraction",
             items=[
-                ("mediapipe", "MediaPipe Pose", "Fast CPU-based tracking (~30 FPS)"),
-                ("dwpose", "DWPose WholeBody", "WholeBody 133-point deep AI tracking"),
+                ("mediapipe", "MediaPipe Pose", "Fast CPU-based tracking (~60+ FPS, unprojected 3D root)"),
+                ("dwpose", "DWPose WholeBody", "WholeBody 133-point deep AI tracking with fingers"),
+                ("gvhmr", "GVHMR Studio", "Studio-grade 3D Human Mesh Recovery (SMPL-X, gravity-view coordinates)"),
             ],
             default="mediapipe",
         )

@@ -36,8 +36,14 @@ vid/
 glb/
 weights/
 models/
+assets/
+inputs/
 *.task
 .pytest_cache/
+
+# Scratch & Local Agent Tooling
+scratch/
+.agents/
 
 # OS & IDE
 .DS_Store

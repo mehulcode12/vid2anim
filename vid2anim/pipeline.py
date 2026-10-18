@@ -99,8 +99,12 @@ class Vid2AnimPipeline:
             scaled_motion = scale_normalizer.scale_trajectory(sanitized_motion, model_scale)
 
             # 5. Temporal Smoothing (Anti-Jitter Filter)
+            # GVHMR already performs continuous 4D temporal autoregressive motion recovery.
+            # Applying causal low-pass position/rotation filters (OneEuro/SLERP) introduces phase lag
+            # and desynchronizes the 3D character from reference video footage.
             motion = scaled_motion
-            if self.config.smooth and scaled_motion.frame_count > 2:
+            is_gvhmr = getattr(self.config, "engine", "mediapipe").lower() == "gvhmr"
+            if self.config.smooth and not is_gvhmr and scaled_motion.frame_count > 2:
                 self.reporter.report("PIPELINE", 0.60, "Applying temporal anti-jitter filter...")
                 smoother = TemporalMotionSmoother(position_smoothness=self.config.smoothness_factor)
                 motion = smoother.smooth_motion_positions(scaled_motion)
@@ -115,7 +119,7 @@ class Vid2AnimPipeline:
             retargeter = UniversalRetargeter(reporter=self.reporter)
             animation = retargeter.retarget(motion, rig_info, calibrator=calibrator)
 
-            if self.config.smooth and animation.frame_count > 3:
+            if self.config.smooth and not is_gvhmr and animation.frame_count > 3:
                 smoother = TemporalMotionSmoother()
                 animation = smoother.smooth_animation_rotations(animation)
 

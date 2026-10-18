@@ -38,7 +38,12 @@ class ProgressReporter:
 
         if self.on_report:
             try:
-                self.on_report(step, progress_clamped, message)
+                self.on_report(step, progress_clamped, message, extra)
+            except TypeError:
+                try:
+                    self.on_report(step, progress_clamped, message)
+                except Exception:
+                    pass
             except Exception:
                 pass
 

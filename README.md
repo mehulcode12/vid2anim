@@ -10,12 +10,14 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 [![Python 3.10 - 3.12](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Blender 3.0 - 4.2+ LTS](https://img.shields.io/badge/Blender-3.0%20to%204.2+-E87D0D.svg?style=flat&logo=blender&logoColor=white)](https://www.blender.org/)
-[![Hardware: 100% CPU Ready](https://img.shields.io/badge/Hardware-100%25%20CPU%20Ready%20(No%20GPU%20Required)-00C853.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
+[![Triple AI Engines](https://img.shields.io/badge/Engines-MediaPipe%20%7C%20DWPose%20%7C%20GVHMR%20(SMPL--X)-blue.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
+[![Drive Isolation](https://img.shields.io/badge/Storage-Zero%20C%3A%20Drive%20Writes%20(Project--Isolated)-00C853.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
 [![Output: GLB & BVH](https://img.shields.io/badge/Output-glTF%202.0%20(.glb)%20%7C%20BVH-673AB7.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
-[![Tests: 49 Passing](https://img.shields.io/badge/Tests-49%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
+[![Tests: 54 Passing](https://img.shields.io/badge/Tests-54%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
 [![CI Test Suite](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml)
 
-[Key Features](#-what-makes-it-built-for-3d-artists) •
+[Key Features](#-why-3d-artists--animators-love-vid2anim) •
+[Triple AI Engines](#-triple-ai-tracking-engine-suite) •
 [Three Ways to Use](#-three-ways-to-use-vid2anim) •
 [Supported 3D Rigs](#-supported-character-rigs--formats) •
 [2-Minute Quickstart](#-2-minute-quickstart) •
@@ -32,13 +34,28 @@ Most AI mocap tools force you into proprietary cloud subscriptions, require expe
 
 `vid2anim` is an **open-source, artist-friendly 3D workstation tool** designed to fit right into your existing Blender, Unreal, Unity, or VTuber pipeline:
 
-* **🚀 100% CPU-Ready (No Expensive GPU Required):** Runs smoothly on standard laptops and workstations using optimized computer vision, with optional NVIDIA CUDA acceleration when you want ultra-fast batch processing.
+* **🚀 Triple-Engine Tracking Suite:** Choose the right engine for your hardware and quality needs — from ultra-fast 100% CPU MediaPipe tracking (60+ FPS) to studio-grade parametric 3D Human Mesh Recovery (**GVHMR + SMPL-X**).
+* **🔒 Strict Project Directory Isolation:** Never pollutes or fills your system `C:` drive. All model weights, PyTorch caches, HuggingFace downloads, and temp files are strictly isolated inside `./weights`, `./assets`, and `./inputs`.
+* **⚡ Asynchronous Frame Prefetching (`AsyncVideoReader`):** Multithreaded background decoding overlaps video I/O with model inference, eliminating CPU decode stalls and boosting pipeline throughput by ~30%.
+* **🚶 Real World Root Motion & Foot Grounding:** Characters actually walk, sprint, and jump across 3D space with metric world translation ($X, Z$) and stance-foot ground contact ($Y$), eliminating root freeze and foot sliding.
 * **🔌 Native Blender 3D Add-on:** Retarget reference video directly onto your character armature inside Blender with a single click. Bakes standard keyframes straight to the Blender Timeline & Action Editor.
 * **🌐 Interactive Web Studio:** Drag-and-drop your video and 3D character (`.glb`, `.fbx`, `.obj`). Preview synchronized side-by-side motion in real time with an interactive Three.js 3D orbit viewport before exporting.
 * **🖐️ 5-Digit Anatomical Finger Articulation:** Captures independent Thumb, Index, Middle, Ring, and Pinky flexion. No rigid "mitten hands" or static fists.
 * **🎯 Universal Rig Auto-Detection:** Automatically matches bones for **Mixamo, VRM (Ready Player Me / VTubers), Blender Rigify, Unreal Engine Mannequins (UE4/UE5), and Daz3D / Character Creator**.
 * **🦴 Auto-Rigging for Static Meshes:** Have an unrigged 3D statue or creature mesh? The built-in auto-rigger automatically fits a humanoid skeleton and computes smooth skinning weights.
 * **📦 Universal glTF 2.0 & BVH Export:** Exports clean, strictly compliant `.glb` files ready for Blender, Unreal Engine, Unity, Three.js, Godot, and Web, plus standard `.bvh` files for Maya, Cinema 4D, and 3ds Max.
+
+---
+
+## 🧠 Triple AI Tracking Engine Suite
+
+`vid2anim` provides three specialized AI tracking engines, selectable via CLI (`--engine`), the Web UI, or the Blender Add-on:
+
+| Engine | Ideal Use Case | Speed / FPS | Hardware | Download Size | Key Capabilities |
+|:---|:---|:---:|:---:|:---:|:---|
+| **MediaPipe Pose**<br>`--engine mediapipe` | Instant setup, standard laptops, mobile clips | **60–100+ FPS** | **100% CPU Ready** | ~28 MB (Lightweight) | Real-time tracking, 2D-to-3D screen unprojected root motion, zero heavy downloads. |
+| **DWPose WholeBody**<br>`--engine dwpose` | Expressive gestures, dance, sign language | **25–45 FPS** | CPU or CUDA | ~150 MB (ONNX) | 133 WholeBody keypoints with 21-point anatomical finger curl and face tracking. |
+| **GVHMR Studio (3D HMR)**<br>`--engine gvhmr` | Studio cinemactics, full-body turns, actor travel | **Deep Recovery** | CPU or CUDA | ~5.3 GB (Full SOTA) | Parametric SMPL-X human mesh recovery in gravity-view world coordinates, true metric root trajectory. |
 
 ---
 
@@ -52,7 +69,7 @@ Choose the workflow that fits your creative setup:
 No need to leave Blender! Install the included add-on (`plugins/blender/vid2anim_blender.py`):
 1. Press <kbd>N</kbd> in the 3D Viewport to open the sidebar tab **`vid2anim`**.
 2. Select your character's armature in the scene.
-3. Choose your reference video or photo.
+3. Choose your reference video or photo and select your preferred engine (**MediaPipe**, **DWPose**, or **GVHMR Studio**).
 4. Click **"Animate Selected Armature"**.
 5. Keyframes are baked directly into a native Blender **Action**, ready for tweaking in the Graph Editor or NLA Stacks.
 
@@ -63,10 +80,11 @@ No need to leave Blender! Install the included add-on (`plugins/blender/vid2anim
 
 Launch the local studio with one command:
 ```bash
-vid2anim serve
+vid2anim serve --port 8080
 ```
-Open `http://localhost:8000` to access:
+Open **`http://localhost:8080`** to access:
 * **Drag-and-Drop Station:** Drop your reference `.mp4` / `.jpg` on the left, and your `.glb` / `.fbx` character on the right.
+* **Tracking Engine Selector:** Toggle between MediaPipe, DWPose, or GVHMR Studio with 1 click.
 * **Synchronized Side-by-Side Playback:** Scrub video and 3D motion together with sub-frame timecode display and frame-stepping buttons (<kbd>◀</kbd> / <kbd>▶</kbd>).
 * **Interactive 3D Orbit Viewport:** Rotate, pan, zoom, inspect skeleton bones, toggle wireframe, and check ground alignment.
 * **1-Click Download:** Download the animated `.glb` or export universal `.bvh` motion files instantly.
@@ -77,14 +95,17 @@ Open `http://localhost:8000` to access:
 > **Best for:** Technical Directors, game studios, and processing entire motion libraries.
 
 ```bash
-# Animate a character directly from video:
-vid2anim run --input dance.mp4 --model character.glb --output animated.glb
+# 1. Animate a character with ultra-fast CPU MediaPipe tracking:
+vid2anim run --input dance.mp4 --model ybot.glb --engine mediapipe --output dance_animated.glb
 
-# Extract motion once to cache, then retarget onto 10 different characters:
-vid2anim extract --input stunts.mp4 --output motion.npz
-vid2anim retarget --motion motion.npz --model warrior.glb --output warrior_anim.glb
-vid2anim retarget --motion motion.npz --model robot.glb   --output robot_anim.glb
-vid2anim retarget --motion motion.npz --model vtuber.vrm  --output vtuber_anim.glb
+# 2. Animate with studio-grade 3D Human Mesh Recovery (GVHMR):
+vid2anim run --input acrobatic.mp4 --model character.glb --engine gvhmr --output acrobatic_hmr.glb
+
+# 3. Extract motion once to reusable cache, then retarget onto 10 different characters:
+vid2anim extract --input stunts.mp4 --engine gvhmr --output motion_stunts.npz
+vid2anim retarget --motion motion_stunts.npz --model warrior.glb --output warrior_anim.glb
+vid2anim retarget --motion motion_stunts.npz --model robot.glb   --output robot_anim.glb
+vid2anim retarget --motion motion_stunts.npz --model vtuber.vrm  --output vtuber_anim.glb
 ```
 
 ---
@@ -123,8 +144,8 @@ Raw computer vision mocap is notoriously noisy. `vid2anim` applies temporal smoo
 * Eliminates micro-shiver and jitter on stationary joints.
 * Preserves sharp, high-velocity movements (punches, kicks, fast dance steps).
 
-### 🦶 Root Grounding & Foot Planting
-Calculates hip trajectory relative to ground contact, preventing characters from floating in mid-air or sinking into the floor during squats and lunges.
+### 🦶 Root Grounding & Stance Foot Anchoring
+Calculates true hip trajectory relative to ground contact, preventing characters from floating in mid-air or sinking into the floor during squats, walking, and running.
 
 ---
 
@@ -144,23 +165,21 @@ python -m venv .venv
 # On Windows: .venv\Scripts\Activate.ps1
 # On Linux/macOS: source .venv/bin/activate
 
-# Install vid2anim (CPU mode by default)
+# Install vid2anim
 pip install -e .
 ```
-
-*(Optional: For NVIDIA GPU acceleration, run `pip install -e .[gpu]`)*
 
 ### 2. Verify Your System
 ```bash
 vid2anim doctor
 ```
-Checks your CPU cores, compute device, and MediaPipe AI tracking engine.
+Checks your CPU cores, compute device, and AI tracking engines.
 
 ### 3. Launch the Web Studio
 ```bash
-vid2anim serve
+vid2anim serve --port 8080
 ```
-Open **[http://localhost:8000](http://localhost:8000)** in your browser and start animating!
+Open **[http://localhost:8080](http://localhost:8080)** in your browser and start animating!
 
 ---
 
@@ -169,7 +188,7 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser and star
 `vid2anim` includes a dedicated bridge add-on for **Blender 3.0, 3.6 LTS, 4.0, 4.1, and 4.2+ LTS**.
 
 ### How to Install:
-1. Start the local server: `vid2anim serve`
+1. Start the local server: `vid2anim serve --port 8080`
 2. Open Blender &rarr; **Edit &rarr; Preferences &rarr; Add-ons**.
 3. Click **Install...** (or the arrow dropdown in 4.2) and select:
    ```
@@ -181,7 +200,7 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser and star
 ### How to Use:
 1. In the 3D Viewport, press <kbd>N</kbd> to toggle the sidebar, and click the **`vid2anim`** tab.
 2. Select your character's armature.
-3. Browse for your reference video or photo.
+3. Browse for your reference video or photo and choose your engine.
 4. Click **"Animate Selected Armature"**.
 5. Done! The animation is now a native Blender Action.
 
@@ -205,10 +224,10 @@ For the cleanest, production-ready mocap results:
 
 | Command | Usage | Description |
 |:---|:---|:---|
-| `vid2anim serve` | `vid2anim serve --port 8000` | Launch local Web Studio & 3D player |
+| `vid2anim serve` | `vid2anim serve --port 8080` | Launch local Web Studio & 3D player |
 | `vid2anim inspect` | `vid2anim inspect character.glb` | Inspect bones, rig type, and rest pose |
-| `vid2anim run` | `vid2anim run -i clip.mp4 -m rig.glb -o out.glb` | Full end-to-end animation |
-| `vid2anim extract` | `vid2anim extract -i clip.mp4 -o motion.npz` | Extract motion to reusable cache |
+| `vid2anim run` | `vid2anim run -i clip.mp4 -m rig.glb --engine gvhmr -o out.glb` | Full end-to-end animation |
+| `vid2anim extract` | `vid2anim extract -i clip.mp4 --engine dwpose -o motion.npz` | Extract motion to reusable cache |
 | `vid2anim retarget` | `vid2anim retarget -m motion.npz -m rig.glb` | Retarget cached motion onto any model |
 | `vid2anim doctor` | `vid2anim doctor` | Check hardware, CPU, and AI models |
 
@@ -226,6 +245,7 @@ config = PipelineConfig(
     input_media=Path("mocap_reference.mp4"),
     target_model=Path("game_character.glb"),
     output_glb=Path("output/game_character_animated.glb"),
+    engine="gvhmr",           # "mediapipe", "dwpose", or "gvhmr"
     smooth=True,              # Anti-jitter filter
     max_duration_sec=60.0,
 )

@@ -1,6 +1,5 @@
 """Universal Rig Transfer: Anatomical Reference & Closed-Form Forward Kinematics.
 
-Ported and generalized from Motion2MixamoRig (MaxLiu22/Motion2MixamoRig) & GVHMR.
 Transforms 3D human pose kinematics onto ANY target glTF armature (Mixamo,
 Character Creator, Rigify, VRM, UE5, Daz3D, Sketchfab) using:
 1. Strict rest-frame reference calculation from the 3D model's rest geometry (no frame-0 bias)
@@ -65,17 +64,19 @@ LIMB_CHILD: Dict[str, str] = {
 }
 
 LIMB_HUMAN_PAIRS: Dict[str, Tuple[str, str]] = {
-    "spine": ("hips", "spine"),
-    "spine1": ("spine", "spine1"),
-    "chest": ("spine", "chest"),
-    "neck": ("neck", "head"),
-    "head": ("neck", "head"),
-    "left_shoulder": ("chest", "left_shoulder"),
+    "spine": ("spine1", "spine2"),
+    "spine1": ("spine2", "spine3"),
+    "chest": ("spine3", "neck"),
+    "neck": ("spine3", "head"),
+    "head": ("spine3", "head"),
+    "left_shoulder": ("left_collar", "left_shoulder"),
     "left_arm": ("left_shoulder", "left_forearm"),
     "left_forearm": ("left_forearm", "left_hand"),
-    "right_shoulder": ("chest", "right_shoulder"),
+    "left_hand": ("left_hand", "left_fingers"),
+    "right_shoulder": ("right_collar", "right_shoulder"),
     "right_arm": ("right_shoulder", "right_forearm"),
     "right_forearm": ("right_forearm", "right_hand"),
+    "right_hand": ("right_hand", "right_fingers"),
     "left_upleg": ("left_upleg", "left_leg"),
     "left_leg": ("left_leg", "left_foot"),
     "left_foot": ("left_foot", "left_toe"),
@@ -232,7 +233,7 @@ class UniversalTransferSolver:
         self.aim_local: Dict[str, np.ndarray] = {}
         self._build_topological_aim_axes()
 
-        # Exact rest reference frames (from Motion2MixamoRig reference)
+        # Exact rest reference frames from model geometry
         # Hips rest frame from model's actual bone rest positions
         if "left_upleg" in self.rest_world_pos and "right_upleg" in self.rest_world_pos and "hips" in self.rest_world_pos:
             pos_l = self.rest_world_pos["left_upleg"]
@@ -246,14 +247,30 @@ class UniversalTransferSolver:
         else:
             self.r_pelvis_rest = np.eye(3, dtype=np.float64)
 
-        # Chest rest frame from model's shoulders and spine/neck up
-        if "left_shoulder" in self.rest_world_pos and "right_shoulder" in self.rest_world_pos:
-            pos_l_sh = self.rest_world_pos["left_shoulder"]
-            pos_r_sh = self.rest_world_pos["right_shoulder"]
-            pos_spine = self.rest_world_pos.get("spine", self.rest_world_pos.get("chest", np.array([0.0, 1.0, 0.0])))
-            pos_neck = self.rest_world_pos.get("neck", pos_spine + np.array([0.0, 1.0, 0.0]))
-            self.r_chest_rest = orthonormal_frame(pos_l_sh - pos_r_sh, pos_neck - pos_spine)
+        # Spine2 chest rest frame attachments relative to the chest bone
+        l_sh_name = self.rig_info.bone_mapping.get("left_shoulder")
+        r_sh_name = self.rig_info.bone_mapping.get("right_shoulder")
+        neck_name = self.rig_info.bone_mapping.get("neck")
+        chest_name = self.rig_info.bone_mapping.get("chest")
+        if chest_name and chest_name in self.name_to_idx:
+            c_idx = self.name_to_idx[chest_name]
+            w_chest_rest = _orthonormalize_matrix(self.rest_world_mat[c_idx][:3, :3])
+            pos_chest = self.rest_world_mat[c_idx][:3, 3]
+            if l_sh_name and r_sh_name and l_sh_name in self.name_to_idx and r_sh_name in self.name_to_idx:
+                pos_l_sh = self.rest_world_mat[self.name_to_idx[l_sh_name]][:3, 3]
+                pos_r_sh = self.rest_world_mat[self.name_to_idx[r_sh_name]][:3, 3]
+                self.rest_left_chest = w_chest_rest.T @ (pos_l_sh - pos_r_sh)
+            else:
+                self.rest_left_chest = np.array([1.0, 0.0, 0.0])
+            if neck_name and neck_name in self.name_to_idx:
+                pos_n = self.rest_world_mat[self.name_to_idx[neck_name]][:3, 3]
+                self.rest_up_chest = w_chest_rest.T @ (pos_n - pos_chest)
+            else:
+                self.rest_up_chest = np.array([0.0, 1.0, 0.0])
+            self.r_chest_rest = orthonormal_frame(w_chest_rest @ self.rest_left_chest, w_chest_rest @ self.rest_up_chest)
         else:
+            self.rest_left_chest = np.array([1.0, 0.0, 0.0])
+            self.rest_up_chest = np.array([0.0, 1.0, 0.0])
             self.r_chest_rest = np.eye(3, dtype=np.float64)
 
         # Compute basis change matrices for compatibility
@@ -512,38 +529,16 @@ class UniversalTransferSolver:
                     if canon_toe not in self.aim_local:
                         self.aim_local[canon_toe] = m_rot.T @ np.array([0.0, 0.0, 1.0])
 
-        # For hands, discover along-local axis from child node or forearm direction
+        # For hands, neck, and head, humanoid models define local +Y along the bone length
         for canon_hand in ["left_hand", "right_hand"]:
             if canon_hand in self.rig_info.bone_mapping:
-                tb = self.rig_info.bone_mapping[canon_hand]
-                if tb in self.name_to_idx:
-                    idx = self.name_to_idx[tb]
-                    ch_list = self.children_of.get(idx, [])
-                    m_rot = _orthonormalize_matrix(self.rest_world_mat[idx][:3, :3])
-                    if ch_list:
-                        ch_idx = ch_list[0]
-                        v_w = self.rest_world_mat[ch_idx][:3, 3] - self.rest_world_mat[idx][:3, 3]
-                        if float(np.linalg.norm(v_w)) > 1e-5:
-                            self.aim_local[canon_hand] = m_rot.T @ normalize(v_w)
-                    if canon_hand not in self.aim_local:
-                        lat = 1.0 if "left" in canon_hand else -1.0
-                        self.aim_local[canon_hand] = m_rot.T @ np.array([lat, 0.0, 0.0])
+                self.aim_local[canon_hand] = np.array([0.0, 1.0, 0.0], dtype=np.float64)
 
-        # For neck and head, use vertical cervical heading (world +Y in rest pose)
-        # to prevent forward pitch tilt from rest translation offsets (Motion2MixamoRig reference)
-        if "neck" in self.rig_info.bone_mapping and "neck" not in self.aim_local:
-            nb = self.rig_info.bone_mapping["neck"]
-            if nb in self.name_to_idx:
-                n_idx = self.name_to_idx[nb]
-                m_rot = _orthonormalize_matrix(self.rest_world_mat[n_idx][:3, :3])
-                self.aim_local["neck"] = m_rot.T @ np.array([0.0, 1.0, 0.0])
+        if "neck" in self.rig_info.bone_mapping:
+            self.aim_local["neck"] = np.array([0.0, 1.0, 0.0], dtype=np.float64)
 
-        if "head" in self.rig_info.bone_mapping and "head" not in self.aim_local:
-            hb = self.rig_info.bone_mapping["head"]
-            if hb in self.name_to_idx:
-                h_idx = self.name_to_idx[hb]
-                m_rot = _orthonormalize_matrix(self.rest_world_mat[h_idx][:3, :3])
-                self.aim_local["head"] = m_rot.T @ np.array([0.0, 1.0, 0.0])
+        if "head" in self.rig_info.bone_mapping:
+            self.aim_local["head"] = np.array([0.0, 1.0, 0.0], dtype=np.float64)
 
     def _build_basis_changes(self) -> None:
         """Derive basis change C = F_target^T @ F_skel for all mapped canonical bones."""
@@ -650,7 +645,7 @@ class UniversalTransferSolver:
         canonical_motion: CanonicalMotion,
         raw_motion: Optional[Any] = None,
     ) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
-        """Transfer 3D kinematics onto target rig bones using Motion2MixamoRig reference FK & alignment.
+        """Transfer 3D kinematics onto target rig bones using analytical FK & orthonormal alignment.
 
         Returns:
             bone_rotations: target_bone_name -> (F, 4) quaternions [x, y, z, w]
@@ -664,11 +659,24 @@ class UniversalTransferSolver:
         # Resolve joint positions source
         joint_pos: Dict[str, np.ndarray] = {}
         if raw_motion is not None and hasattr(raw_motion, "joint_positions") and raw_motion.joint_positions:
-            joint_pos = raw_motion.joint_positions
+            joint_pos = dict(raw_motion.joint_positions)
         elif canonical_motion.joint_positions is not None and len(canonical_motion.joint_positions) > 0:
-            joint_pos = canonical_motion.joint_positions
+            joint_pos = dict(canonical_motion.joint_positions)
         else:
             joint_pos = {}
+
+        # Coordinate space validation:
+        # Detect if joint_pos is in SMPL camera space (+X right, +Y up, -Z chest forward)
+        # where anatomical left has negative X and right has positive X.
+        # If so, apply R_BODY_ALIGN = np.diag([-1.0, 1.0, -1.0]) to bring into canonical glTF space.
+        if "left_upleg" in joint_pos and "right_upleg" in joint_pos and len(joint_pos["left_upleg"]) > 0:
+            l_x = float(np.mean(joint_pos["left_upleg"][:, 0]))
+            r_x = float(np.mean(joint_pos["right_upleg"][:, 0]))
+            if l_x < r_x:
+                align_mat = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]], dtype=np.float64)
+                joint_pos = {k: np.matmul(v, align_mat.T) for k, v in joint_pos.items()}
+                if raw_motion is not None and hasattr(raw_motion, "root_translation") and raw_motion.root_translation is not None:
+                    raw_motion.root_translation = np.matmul(raw_motion.root_translation, align_mat.T)
 
         # Root translation for hips: contact grounding + parent space projection
         root_bone = self.rig_info.bone_mapping.get("hips")
@@ -680,14 +688,24 @@ class UniversalTransferSolver:
             m_p_inv = np.linalg.inv(self.rest_world_mat[p_idx]) if p_idx is not None else np.eye(4, dtype=np.float64)
             scale_factor = float(self.model_height / 1.75) if self.model_height > 0 else 1.0
 
-            if "left_foot" in joint_pos and "right_foot" in joint_pos and "hips" in joint_pos:
-                y_stance_0 = min(float(joint_pos["left_foot"][0, 1]), float(joint_pos["right_foot"][0, 1]))
+            has_raw_root = (
+                raw_motion is not None
+                and hasattr(raw_motion, "root_translation")
+                and raw_motion.root_translation is not None
+                and len(raw_motion.root_translation) == num_frames
+                and float(np.std(raw_motion.root_translation[:, [0, 2]])) > 1e-4
+            )
+            has_feet = "left_foot" in joint_pos and "right_foot" in joint_pos
+
+            if has_raw_root:
+                raw_t = raw_motion.root_translation.astype(np.float64)
                 for f in range(num_frames):
-                    y_stance_f = min(float(joint_pos["left_foot"][f, 1]), float(joint_pos["right_foot"][f, 1]))
-                    dy_ground = -(y_stance_f - y_stance_0)
-                    dx = float(joint_pos["hips"][f, 0] - joint_pos["hips"][0, 0])
-                    dz = float(joint_pos["hips"][f, 2] - joint_pos["hips"][0, 2])
-                    v_w = np.array([dx * scale_factor, dy_ground * scale_factor, dz * scale_factor], dtype=np.float64)
+                    v_w = (raw_t[f] - raw_t[0]) * scale_factor
+                    v_local = m_p_inv[:3, :3] @ v_w
+                    root_trans[f] = v_local.astype(np.float32)
+            elif "hips" in joint_pos and len(joint_pos["hips"]) == num_frames:
+                for f in range(num_frames):
+                    v_w = (joint_pos["hips"][f] - joint_pos["hips"][0]) * scale_factor
                     v_local = m_p_inv[:3, :3] @ v_w
                     root_trans[f] = v_local.astype(np.float32)
             elif raw_motion is not None and hasattr(raw_motion, "root_translation"):
@@ -733,7 +751,7 @@ class UniversalTransferSolver:
             prev_rot_mat[f_name] = quat_xyzw_to_matrix(q_init)
 
         # Fully determined bones where twist continuity must not override direct 3D orientation
-        fully_determined: Set[str] = {"hips", "chest", "left_foot", "right_foot", "left_toe", "right_toe", "spine1"}
+        fully_determined: Set[str] = {"hips", "chest", "left_foot", "right_foot", "left_toe", "right_toe"}
 
         # Precompute per-digit dynamic finger curl trajectories with temporal filtering
         curl_dyn_by_digit: Dict[Tuple[str, str], np.ndarray] = {}
@@ -854,9 +872,13 @@ class UniversalTransferSolver:
                 r_local = r_bone_rest
 
                 if canon == "hips":
-                    if "left_upleg" in joint_pos and "right_upleg" in joint_pos and "neck" in joint_pos and "hips" in joint_pos:
-                        v_lat = joint_pos["left_upleg"][f] - joint_pos["right_upleg"][f]
-                        v_up = joint_pos["neck"][f] - joint_pos["hips"][f]
+                    l_hip = joint_pos.get("left_hip", joint_pos.get("left_upleg"))
+                    r_hip = joint_pos.get("right_hip", joint_pos.get("right_upleg"))
+                    neck_p = joint_pos.get("neck")
+                    pelv_p = joint_pos.get("pelvis", joint_pos.get("hips"))
+                    if l_hip is not None and r_hip is not None and neck_p is not None and pelv_p is not None:
+                        v_lat = l_hip[f] - r_hip[f]
+                        v_up = neck_p[f] - pelv_p[f]
                         r_tgt_frame = orthonormal_frame(v_lat, v_up)
                         # Rotate model's rest orientation into the current human target frame
                         r_hips_world = (r_tgt_frame @ self.r_pelvis_rest.T) @ w_bone_rest
@@ -865,119 +887,51 @@ class UniversalTransferSolver:
                         r_canon_f = canonical_motion.r_anim[f].get("hips", np.eye(3))
                         r_local = r_bone_rest @ r_canon_f
 
-                elif canon == "spine":
-                    if "left_shoulder" in joint_pos and "right_shoulder" in joint_pos and "neck" in joint_pos and "spine" in joint_pos and "left_upleg" in joint_pos and "right_upleg" in joint_pos:
-                        v_hips_lat = joint_pos["left_upleg"][f] - joint_pos["right_upleg"][f]
-                        v_hips_up = joint_pos["neck"][f] - joint_pos["hips"][f]
-                        r_tgt_hips = orthonormal_frame(v_hips_lat, v_hips_up)
-                        root_b = self.rig_info.bone_mapping.get("hips")
-                        hip_idx = self.name_to_idx[root_b] if root_b and root_b in self.name_to_idx else idx
-                        r_hips_w = (r_tgt_hips @ self.r_pelvis_rest.T) @ _orthonormalize_matrix(self.rest_world_mat[hip_idx][:3, :3])
-
-                        v_chest_lat = joint_pos["left_shoulder"][f] - joint_pos["right_shoulder"][f]
-                        v_chest_up = joint_pos["neck"][f] - joint_pos["spine"][f]
-                        r_tgt_chest = orthonormal_frame(v_chest_lat, v_chest_up)
-                        chest_b = self.rig_info.bone_mapping.get("chest")
-                        c_idx = self.name_to_idx[chest_b] if chest_b and chest_b in self.name_to_idx else idx
-                        r_chest_w = (r_tgt_chest @ self.r_chest_rest.T) @ _orthonormalize_matrix(self.rest_world_mat[c_idx][:3, :3])
-
-                        r_torso_delta = r_chest_w @ r_hips_w.T
-                        q_torso = matrix_to_quat_xyzw(r_torso_delta)
-                        if q_torso[3] < 0.0:
-                            q_torso = -q_torso
-                        half_angle = float(np.arccos(np.clip(q_torso[3], -1.0, 1.0)))
-                        frac_half = half_angle * 0.40
-                        sin_h = float(np.sin(half_angle))
-                        u_axis = q_torso[:3] / sin_h if abs(sin_h) > 1e-6 else np.array([0.0, 1.0, 0.0])
-                        q_frac = np.array([u_axis[0] * np.sin(frac_half), u_axis[1] * np.sin(frac_half), u_axis[2] * np.sin(frac_half), np.cos(frac_half)], dtype=np.float64)
-                        r_local = r_bone_rest @ quat_xyzw_to_matrix(q_frac)
-                    else:
-                        r_local = r_bone_rest
-
-                elif canon == "spine1":
-                    if "spine1" in joint_pos and "chest" in joint_pos:
-                        v_human = joint_pos["chest"][f] - joint_pos["spine1"][f]
-                    elif "spine" in joint_pos and "chest" in joint_pos:
-                        v_human = joint_pos["chest"][f] - joint_pos["spine"][f]
-                    else:
-                        v_human = np.array([0.0, 1.0, 0.0])
-                    d_aim = self.aim_local.get("spine1", np.array([0.0, 1.0, 0.0]))
-                    target_w = normalize(v_human, np.array([0.0, 1.0, 0.0]))
-                    target_in_parent = w_parent.T @ target_w
-                    r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
-                    r_local = r_delta @ r_bone_rest
-
                 elif canon == "chest":
-                    if "left_shoulder" in joint_pos and "right_shoulder" in joint_pos and "neck" in joint_pos and "spine" in joint_pos:
-                        v_lat = joint_pos["left_shoulder"][f] - joint_pos["right_shoulder"][f]
-                        v_up = joint_pos["neck"][f] - joint_pos["spine"][f]
-                        r_tgt_chest_frame = orthonormal_frame(v_lat, v_up)
-                        r_chest_world = (r_tgt_chest_frame @ self.r_chest_rest.T) @ w_bone_rest
+                    l_c = joint_pos.get("left_collar", joint_pos.get("left_shoulder"))
+                    r_c = joint_pos.get("right_collar", joint_pos.get("right_shoulder"))
+                    neck_p = joint_pos.get("neck")
+                    s3_p = joint_pos.get("spine3", joint_pos.get("chest", joint_pos.get("spine1")))
+                    if l_c is not None and r_c is not None and neck_p is not None and s3_p is not None:
+                        tgt_left = l_c[f] - r_c[f]
+                        tgt_up = neck_p[f] - s3_p[f]
+                        r_tgt_chest_frame = orthonormal_frame(tgt_left, tgt_up)
+                        r_rest_world = w_parent @ r_bone_rest
+                        r_rest_frame = orthonormal_frame(r_rest_world @ self.rest_left_chest, r_rest_world @ self.rest_up_chest)
+                        r_chest_world = (r_tgt_chest_frame @ r_rest_frame.T) @ r_rest_world
                         r_local = w_parent.T @ r_chest_world
                     elif f < len(canonical_motion.r_anim):
                         r_canon_f = canonical_motion.r_anim[f].get("chest", np.eye(3))
                         r_local = r_bone_rest @ r_canon_f
 
-                elif canon == "neck":
-                    if "head" in joint_pos and ("chest" in joint_pos or "neck" in joint_pos):
-                        p_base = joint_pos.get("chest", joint_pos.get("neck"))[f]
-                        v_hn = joint_pos["head"][f] - p_base
-                        if float(np.linalg.norm(v_hn)) > 1e-5:
-                            target_w_raw = normalize(v_hn, np.array([0.0, 1.0, 0.0]))
-                            target_in_parent_raw = w_parent.T @ target_w_raw
-                            if target_in_parent_raw[2] > 0.05:
-                                theta = float(np.arctan2(target_in_parent_raw[2], target_in_parent_raw[1]))
-                                theta_corr = theta - float(np.radians(16.0))
-                                target_in_parent = normalize(np.array([
-                                    target_in_parent_raw[0],
-                                    np.cos(theta_corr),
-                                    np.sin(theta_corr),
-                                ], dtype=np.float64), np.array([0.0, 1.0, 0.0]))
-                            else:
-                                target_in_parent = target_in_parent_raw
-                            d_aim = self.aim_local.get("neck", np.array([0.0, 1.0, 0.0]))
+                elif canon in ["neck", "head"]:
+                    head_p = joint_pos.get("head")
+                    s3_p = joint_pos.get("spine3", joint_pos.get("chest", joint_pos.get("neck")))
+                    if head_p is not None and s3_p is not None:
+                        tgt = head_p[f] - s3_p[f]
+                        if float(np.linalg.norm(tgt)) > 1e-5:
+                            d_aim = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+                            target_in_parent = w_parent.T @ normalize(tgt)
                             r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
-                            if "head" in self.rig_info.bone_mapping and self.rig_info.bone_mapping["head"] in self.name_to_idx:
-                                q_delta = matrix_to_quat_xyzw(r_delta)
-                                if q_delta[3] < 0.0:
-                                    q_delta = -q_delta
-                                half_angle = float(np.arccos(np.clip(q_delta[3], -1.0, 1.0)))
-                                frac_half = half_angle * 0.55
-                                sin_h = float(np.sin(half_angle))
-                                u_axis = q_delta[:3] / sin_h if abs(sin_h) > 1e-6 else np.array([0.0, 1.0, 0.0])
-                                q_frac = np.array([u_axis[0] * np.sin(frac_half), u_axis[1] * np.sin(frac_half), u_axis[2] * np.sin(frac_half), np.cos(frac_half)], dtype=np.float64)
-                                r_local = quat_xyzw_to_matrix(q_frac) @ r_bone_rest
-                            else:
-                                r_local = r_delta @ r_bone_rest
+                            r_local = r_delta @ r_bone_rest
                         else:
                             r_local = r_bone_rest
                     else:
                         r_local = r_bone_rest
 
-                elif canon == "head":
-                    if "head" in joint_pos and ("chest" in joint_pos or "neck" in joint_pos):
-                        p_base = joint_pos.get("chest", joint_pos.get("neck"))[f]
-                        v_hn = joint_pos["head"][f] - p_base
-                        if float(np.linalg.norm(v_hn)) > 1e-5:
-                            target_w_raw = normalize(v_hn, np.array([0.0, 1.0, 0.0]))
-                            n_bone = self.rig_info.bone_mapping.get("neck")
-                            n_idx = self.name_to_idx.get(n_bone) if n_bone else None
-                            p_chest_idx = self.parent_of.get(n_idx) if n_idx is not None else None
-                            w_chest = curr_world_mat[p_chest_idx][:3, :3] if p_chest_idx is not None else w_parent
-                            target_in_chest_raw = w_chest.T @ target_w_raw
-                            if target_in_chest_raw[2] > 0.05:
-                                theta = float(np.arctan2(target_in_chest_raw[2], target_in_chest_raw[1]))
-                                theta_corr = theta - float(np.radians(16.0))
-                                target_in_chest = normalize(np.array([
-                                    target_in_chest_raw[0],
-                                    np.cos(theta_corr),
-                                    np.sin(theta_corr),
-                                ], dtype=np.float64), np.array([0.0, 1.0, 0.0]))
-                            else:
-                                target_in_chest = target_in_chest_raw
-                            target_w_calibrated = w_chest @ target_in_chest
-                            target_in_parent = w_parent.T @ target_w_calibrated
-                            d_aim = self.aim_local.get("head", np.array([0.0, 1.0, 0.0]))
+                elif canon in ["left_hand", "right_hand"]:
+                    side = "left" if "left" in canon else "right"
+                    wrist_p = joint_pos.get(f"{side}_wrist")
+                    if wrist_p is None:
+                        wrist_p = joint_pos.get(f"{side}_hand", joint_pos.get(canon))
+                    palm_p = joint_pos.get(f"{side}_fingers")
+                    if palm_p is None or (wrist_p is not None and len(wrist_p) > 0 and len(palm_p) > 0 and float(np.linalg.norm(palm_p[0] - wrist_p[0])) < 1e-4):
+                        palm_p = joint_pos.get(f"{side}_hand")
+                    if wrist_p is not None and palm_p is not None:
+                        tgt = palm_p[f] - wrist_p[f]
+                        if float(np.linalg.norm(tgt)) > 1e-4:
+                            d_aim = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+                            target_in_parent = w_parent.T @ normalize(tgt)
                             r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
                             r_local = r_delta @ r_bone_rest
                         else:
@@ -986,74 +940,119 @@ class UniversalTransferSolver:
                         r_local = r_bone_rest
 
                 elif canon in ["left_foot", "right_foot"]:
-                    # Ported _foot_rotation from Motion2MixamoRig
-                    side_leg = "left_leg" if "left" in canon else "right_leg"
-                    toe_key = "left_toe" if "left" in canon else "right_toe"
-                    along_local = self.aim_local.get(canon, np.array([0.0, 0.0, 1.0]))
-                    r_rest_frame = frame_from_primary_secondary(w_bone_rest @ along_local, np.array([0.0, 1.0, 0.0]))
-
-                    if toe_key in joint_pos and canon in joint_pos:
-                        v_foot = joint_pos[toe_key][f] - joint_pos[canon][f]
-                    elif canon in joint_pos and side_leg in joint_pos:
-                        v_foot = joint_pos[canon][f] - joint_pos[side_leg][f]
+                    side = "left" if "left" in canon else "right"
+                    along_local = self.aim_local.get(canon, np.array([0.0, 1.0, 0.0]))
+                    r_rest = w_parent @ r_bone_rest
+                    WORLD_UP = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+                    up_local = r_rest.T @ WORLD_UP
+                    ankle_p = joint_pos.get(f"{side}_ankle")
+                    if ankle_p is None:
+                        ankle_p = joint_pos.get(canon)
+                    foot_p = joint_pos.get(f"{side}_foot")
+                    if foot_p is None or (ankle_p is not None and len(ankle_p) > 0 and len(foot_p) > 0 and float(np.linalg.norm(foot_p[0] - ankle_p[0])) < 1e-4):
+                        foot_p = joint_pos.get(f"{side}_toe")
+                    knee_p = joint_pos.get(f"{side}_knee", joint_pos.get(f"{side}_leg"))
+                    if foot_p is not None and ankle_p is not None:
+                        diff = foot_p[f] - ankle_p[f]
+                        if float(np.linalg.norm(diff)) > 1e-4:
+                            tgt_along = normalize(diff, np.array([0.0, 0.0, 1.0]))
+                        else:
+                            tgt_along = np.array([0.0, 0.0, 1.0])
                     else:
-                        v_foot = np.array([0.0, 0.0, 1.0])
-
-                    tgt_along = normalize(v_foot, np.array([0.0, 0.0, 1.0]))
-                    tgt_up = np.array([0.0, 1.0, 0.0])
-                    if abs(float(np.dot(tgt_along, tgt_up))) > 0.92:
-                        side_upleg = "left_upleg" if "left" in canon else "right_upleg"
-                        if side_upleg in joint_pos and side_leg in joint_pos:
-                            tgt_up = normalize(joint_pos[side_leg][f] - joint_pos[side_upleg][f], np.array([0.0, 1.0, 0.0]))
+                        tgt_along = np.array([0.0, 0.0, 1.0])
+                    tgt_up = WORLD_UP.copy()
+                    if abs(float(np.dot(tgt_along, tgt_up))) > 0.95 and knee_p is not None and ankle_p is not None:
+                        tgt_up = normalize(ankle_p[f] - knee_p[f], WORLD_UP)
+                        if p_idx is not None:
+                            up_local = r_rest.T @ (w_parent @ (self.rest_world_mat[idx][:3, 3] - self.rest_world_mat[p_idx][:3, 3]))
+                    r_rest_frame = frame_from_primary_secondary(r_rest @ along_local, r_rest @ up_local)
                     r_tgt_frame = frame_from_primary_secondary(tgt_along, tgt_up)
-                    r_foot_world = (r_tgt_frame @ r_rest_frame.T) @ w_bone_rest
-                    r_local = w_parent.T @ r_foot_world
+                    r_world = (r_tgt_frame @ r_rest_frame.T) @ r_rest
+                    r_local = w_parent.T @ r_world
 
                 elif canon in ["left_toe", "right_toe"]:
-                    side_foot = "left_foot" if "left" in canon else "right_foot"
-                    if canon in joint_pos and side_foot in joint_pos:
-                        dy_toe = float(joint_pos[side_foot][f, 1] - joint_pos[canon][f, 1])
-                    else:
-                        dy_toe = 0.0
-                    pitch_rad = float(np.arcsin(np.clip(dy_toe / 0.12, 0.0, 0.70))) if dy_toe > 0.02 else 0.0
-                    along_local = self.aim_local.get(canon, np.array([0.0, 0.0, 1.0]))
-                    axis_lat = normalize(np.cross(np.array([0.0, 1.0, 0.0]), along_local), np.array([1.0, 0.0, 0.0]))
-                    if abs(pitch_rad) > 1e-4:
-                        c_p, s_p = np.cos(pitch_rad), np.sin(pitch_rad)
-                        u = axis_lat
-                        r_pitch = np.eye(3) * c_p + (1.0 - c_p) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_p
-                        r_local = r_bone_rest @ r_pitch
-                    else:
-                        r_local = r_bone_rest
-
-                elif canon in ["left_hand", "right_hand"]:
-                    # Aim hand along wrist -> fingers direction
-                    side_fa = "left_forearm" if "left" in canon else "right_forearm"
-                    fingers_key = "left_fingers" if "left" in canon else "right_fingers"
-                    if fingers_key in joint_pos and canon in joint_pos:
-                        v_hand = joint_pos[fingers_key][f] - joint_pos[canon][f]
-                    elif canon in joint_pos and side_fa in joint_pos:
-                        v_hand = joint_pos[canon][f] - joint_pos[side_fa][f]
-                    else:
-                        v_hand = np.zeros(3)
-
-                    if float(np.linalg.norm(v_hand)) > 1e-5:
-                        lat = 1.0 if "left" in canon else -1.0
-                        target_w = normalize(v_hand, np.array([lat, 0.0, 0.0]))
-                        d_aim = self.aim_local.get(canon, np.array([lat, 0.0, 0.0]))
-                        target_in_parent = w_parent.T @ target_w
-                        r_delta = rotation_aligning(r_bone_rest @ d_aim, target_in_parent)
-                        r_local = r_delta @ r_bone_rest
-                    else:
-                        r_local = r_bone_rest
+                    r_local = r_bone_rest
 
                 elif canon in self.aim_local and canon in LIMB_HUMAN_PAIRS:
                     # Swing limbs: arms, legs, spine, neck, head
                     d_aim = self.aim_local[canon]
                     hp_p, hp_c = LIMB_HUMAN_PAIRS[canon]
-                    if hp_p in joint_pos and hp_c in joint_pos:
-                        pos_p = joint_pos[hp_p][f]
-                        pos_c = joint_pos[hp_c][f]
+
+                    def _get_jp(k: str, role: str) -> Optional[np.ndarray]:
+                        # Precise anatomical articulation:
+                        if canon in ["left_forearm", "right_forearm"]:
+                            side_s = "left" if "left" in canon else "right"
+                            if role == "parent":
+                                return joint_pos.get(f"{side_s}_elbow", joint_pos.get(f"{side_s}_forearm"))
+                            else:
+                                return joint_pos.get(f"{side_s}_wrist", joint_pos.get(f"{side_s}_hand"))
+                        if canon in ["left_leg", "right_leg"]:
+                            side_s = "left" if "left" in canon else "right"
+                            if role == "parent":
+                                return joint_pos.get(f"{side_s}_knee", joint_pos.get(f"{side_s}_leg"))
+                            else:
+                                return joint_pos.get(f"{side_s}_ankle", joint_pos.get(f"{side_s}_foot"))
+                        if canon in ["left_arm", "right_arm"]:
+                            side_s = "left" if "left" in canon else "right"
+                            if role == "parent":
+                                return joint_pos.get(f"{side_s}_shoulder", joint_pos.get(f"{side_s}_arm"))
+                            else:
+                                return joint_pos.get(f"{side_s}_elbow", joint_pos.get(f"{side_s}_forearm"))
+                        if canon in ["left_upleg", "right_upleg"]:
+                            side_s = "left" if "left" in canon else "right"
+                            if role == "parent":
+                                return joint_pos.get(f"{side_s}_hip", joint_pos.get(f"{side_s}_upleg"))
+                            else:
+                                return joint_pos.get(f"{side_s}_knee", joint_pos.get(f"{side_s}_leg"))
+
+                        arr = joint_pos.get(k)
+                        if arr is not None:
+                            return arr
+                        aliases = {
+                            "left_forearm": "left_elbow",
+                            "right_forearm": "right_elbow",
+                            "left_elbow": "left_forearm",
+                            "right_elbow": "right_forearm",
+                            "left_hand": "left_wrist",
+                            "right_hand": "right_wrist",
+                            "left_wrist": "left_hand",
+                            "right_wrist": "right_hand",
+                            "left_upleg": "left_hip",
+                            "right_upleg": "right_hip",
+                            "left_hip": "left_upleg",
+                            "right_hip": "right_upleg",
+                            "left_leg": "left_knee",
+                            "right_leg": "right_knee",
+                            "left_knee": "left_leg",
+                            "right_knee": "right_leg",
+                            "left_foot": "left_ankle",
+                            "right_foot": "right_ankle",
+                            "left_ankle": "left_foot",
+                            "right_ankle": "right_foot",
+                            "left_collar": "left_shoulder",
+                            "right_collar": "right_shoulder",
+                            "spine": "spine1",
+                            "chest": "spine3",
+                        }
+                        alt = aliases.get(k)
+                        if alt and alt in joint_pos:
+                            return joint_pos[alt]
+                        if k == "left_collar":
+                            return joint_pos.get("chest", joint_pos.get("spine1", joint_pos.get("neck")))
+                        if k == "right_collar":
+                            return joint_pos.get("chest", joint_pos.get("spine1", joint_pos.get("neck")))
+                        if k == "left_fingers":
+                            return joint_pos.get("left_hand")
+                        if k == "right_fingers":
+                            return joint_pos.get("right_hand")
+                        return None
+
+                    pos_p_arr = _get_jp(hp_p, "parent")
+                    pos_c_arr = _get_jp(hp_c, "child")
+
+                    if pos_p_arr is not None and pos_c_arr is not None:
+                        pos_p = pos_p_arr[min(f, len(pos_p_arr) - 1)]
+                        pos_c = pos_c_arr[min(f, len(pos_c_arr) - 1)]
                         v_human = pos_c - pos_p
                         if float(np.linalg.norm(v_human)) > 1e-5:
                             target_w = normalize(v_human, np.array([0.0, 1.0, 0.0]))
@@ -1142,28 +1141,9 @@ class UniversalTransferSolver:
                 prev_quat[s_name] = q_clean
                 bone_rotations[s_name][f] = q_clean
 
-            # Procedural finger posing with independent per-digit flexion
+            # Finger chains remain at rest (identity animation relative to hand)
             for f_idx, side, phalanx, is_thumb, digit in self.finger_bones:
-                curl_dyn = float(curl_dyn_by_digit.get((side, digit), np.zeros(num_frames))[f])
-
-                if is_thumb:
-                    deg = 4.0 + 54.0 * curl_dyn
-                else:
-                    if phalanx == 1:
-                        deg = 4.0 + 60.0 * curl_dyn
-                    elif phalanx == 2:
-                        deg = 6.0 + 74.0 * curl_dyn
-                    else:
-                        deg = 4.0 + 52.0 * curl_dyn
-                rad = float(np.radians(deg))
-
-                axis_curl = self.finger_curl_axes.get(f_idx, np.array([0.0, 0.0, 1.0]))
-                c_a, s_a = np.cos(rad), np.sin(rad)
-                u = axis_curl
-                r_curl = np.eye(3) * c_a + (1.0 - c_a) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_a
-                r_f_rest = quat_xyzw_to_matrix(self.rest_local_quat[f_idx])
-                r_f_loc = r_f_rest @ r_curl
-
+                r_f_loc = quat_xyzw_to_matrix(self.rest_local_quat[f_idx])
                 curr_local_rot[f_idx] = r_f_loc
                 f_name = self.idx_to_name[f_idx]
                 q_clean = continue_quaternion_xyzw(matrix_to_quat_xyzw(r_f_loc), prev_quat.get(f_name))

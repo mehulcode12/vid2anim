@@ -2,8 +2,7 @@
 
 Converts 3D extracted motion into target bone rotations and root translations.
 Uses hierarchical Forward Kinematics (FK) on a canonical humanoid skeleton,
-coupled with closed-form Lie algebra basis transformations (C D C^T) from
-the reference Motion2MixamoRig / GVHMR pipeline.
+coupled with closed-form Lie algebra basis transformations (C D C^T).
 Transfers motion seamlessly onto ANY humanoid armature (Mixamo, Character Creator,
 VRM, Rigify, Unreal, Daz3D, Sketchfab) without bone flipping, twisting, or deformations.
 """
