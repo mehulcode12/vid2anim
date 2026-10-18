@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Blender 3.0+](https://img.shields.io/badge/Blender-3.0%20--%204.2+-E87D0D.svg?style=flat&logo=blender&logoColor=white)](https://www.blender.org/)
 [![Hardware: CPU & CUDA](https://img.shields.io/badge/hardware-CPU%20%7C%20CUDA-76B900.svg?style=flat&logo=nvidia&logoColor=white)](https://github.com/mehulcode12/vid2anim)
-[![Tests: Passing](https://img.shields.io/badge/tests-44%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
+[![Tests: Passing](https://img.shields.io/badge/tests-49%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
 
 > **Animate ANY 3D character model from video or photos using AI motion capture and universal retargeting.**  
 > **100% CPU-compatible by default — with optional NVIDIA CUDA GPU acceleration.**
@@ -278,7 +278,7 @@ Run the comprehensive unit and integration test suite:
 pytest -v
 ```
 
-All 44 test cases cover:
+All 49 test cases cover:
 - SO(3) Lie group kinematics & quaternion continuity
 - glTF 2.0 4-byte chunk padding and binary GLB encoding
 - Rig hierarchy classification (Mixamo, VRM, Rigify, UE4/5, Daz3D)
