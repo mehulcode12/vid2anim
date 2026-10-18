@@ -13,8 +13,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-import numpy as np
-
 
 class RigType(str, Enum):
     MIXAMO = "mixamo"
@@ -93,7 +91,6 @@ class RigAnalysis:
     bind_rotations: Dict[str, List[float]] = field(default_factory=dict)
     rest_arm_angle_deg: float = 0.0
     detected_rest_pose: str = "t_pose"
-    character_height_m: float = 0.0
 
 
 def parse_glb_json(glb_path: Path) -> tuple[dict[str, Any], int]:
@@ -181,14 +178,9 @@ def _inspect_gltf_or_glb(path: Path) -> RigAnalysis:
             warnings=["No 'skins' definition found in GLTF. This is a static unrigged mesh."],
         )
 
-    # Collect joint names and initial bind rotations across all skins
-    joint_indices: List[int] = []
-    seen_joints = set()
-    for s in skins:
-        for j in s.get("joints", []):
-            if j not in seen_joints:
-                seen_joints.add(j)
-                joint_indices.append(j)
+    # Collect joint names and initial bind rotations
+    skin = skins[0]
+    joint_indices = skin.get("joints", [])
     bone_names: List[str] = []
     bind_rotations: Dict[str, List[float]] = {}
 
@@ -229,12 +221,6 @@ def _inspect_gltf_or_glb(path: Path) -> RigAnalysis:
     if missing_core:
         warnings.append(f"Missing core humanoid bones in detected rig: {missing_core}")
 
-    character_height = 0.0
-    if world_pos:
-        ys = [float(p[1]) for p in world_pos.values() if isinstance(p, np.ndarray)]
-        if ys:
-            character_height = float(max(ys) - min(ys))
-
     return RigAnalysis(
         file_path=path,
         format="GLTF/GLB",
@@ -247,7 +233,6 @@ def _inspect_gltf_or_glb(path: Path) -> RigAnalysis:
         bind_rotations=bind_rotations,
         rest_arm_angle_deg=rest_arm_angle_deg,
         detected_rest_pose=detected_rest_pose,
-        character_height_m=character_height,
     )
 
 

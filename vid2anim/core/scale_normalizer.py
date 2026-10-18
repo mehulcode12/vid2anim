@@ -20,12 +20,9 @@ class ScaleNormalizer:
 
     def estimate_model_scale(self, rig_info: RigAnalysis) -> float:
         """Estimate scaling multiplier to convert model units to standard meters."""
-        h = getattr(rig_info, "character_height_m", 0.0)
-        if h > 25.0:  # Model in centimeters (e.g. Mixamo FBX default ~175cm)
-            return 0.01
-        elif h > 2.5:  # Non-standard scale
-            return 1.75 / h
-        elif rig_info.format.upper() == "FBX":
+        # Standard default in GLTF is meters (scale = 1.0)
+        # FBX files frequently use centimeters (scale = 0.01)
+        if rig_info.format.upper() == "FBX":
             return 0.01
         return 1.0
 

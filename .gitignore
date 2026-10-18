@@ -48,7 +48,6 @@ scratch/
 # OS & IDE
 .DS_Store
 Thumbs.db
-node_modules/
 .vscode/
 .idea/
 *.log
