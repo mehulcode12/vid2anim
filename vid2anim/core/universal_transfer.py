@@ -782,25 +782,25 @@ class UniversalTransferSolver:
                     r_pky = float(np.linalg.norm(joint_pos[p_key][min(f, len(joint_pos[p_key]) - 1)] - w_pos)) / d_fa if (p_key in joint_pos and len(joint_pos[p_key]) > 0) else r_idx
 
                     # Independent extension metrics for index and pinky
-                    ci = float(np.clip((0.54 - r_idx) / (0.54 - 0.32), 0.0, 1.0))
-                    cp = float(np.clip((0.38 - r_pky) / (0.38 - 0.20), 0.0, 1.0))
+                    ci = float(np.clip((0.48 - r_idx) / (0.48 - 0.25), 0.0, 1.0))
+                    cp = float(np.clip((0.38 - r_pky) / (0.38 - 0.18), 0.0, 1.0))
 
                     # Direct measurement for middle, ring, and thumb when available (e.g. DWPose 133 WholeBody)
                     if m_key in joint_pos and len(joint_pos[m_key]) > 0:
                         r_mid = float(np.linalg.norm(joint_pos[m_key][min(f, len(joint_pos[m_key]) - 1)] - w_pos)) / d_fa
-                        cm = float(np.clip((0.56 - r_mid) / (0.56 - 0.33), 0.0, 1.0))
+                        cm = float(np.clip((0.50 - r_mid) / (0.50 - 0.26), 0.0, 1.0))
                     else:
                         cm = 0.65 * ci + 0.35 * cp
 
                     if r_key in joint_pos and len(joint_pos[r_key]) > 0:
                         r_rng = float(np.linalg.norm(joint_pos[r_key][min(f, len(joint_pos[r_key]) - 1)] - w_pos)) / d_fa
-                        cr = float(np.clip((0.48 - r_rng) / (0.48 - 0.28), 0.0, 1.0))
+                        cr = float(np.clip((0.44 - r_rng) / (0.44 - 0.22), 0.0, 1.0))
                     else:
                         cr = 0.30 * ci + 0.70 * cp
 
                     if t_key in joint_pos and len(joint_pos[t_key]) > 0:
                         r_thb = float(np.linalg.norm(joint_pos[t_key][min(f, len(joint_pos[t_key]) - 1)] - w_pos)) / d_fa
-                        ct = float(np.clip((0.44 - r_thb) / (0.44 - 0.22), 0.0, 1.0))
+                        ct = float(np.clip((0.42 - r_thb) / (0.42 - 0.20), 0.0, 1.0))
                     else:
                         ct = 0.50 * ci + 0.50 * cp
 
@@ -1141,9 +1141,28 @@ class UniversalTransferSolver:
                 prev_quat[s_name] = q_clean
                 bone_rotations[s_name][f] = q_clean
 
-            # Finger chains remain at rest (identity animation relative to hand)
+            # Procedural finger posing with independent per-digit flexion
             for f_idx, side, phalanx, is_thumb, digit in self.finger_bones:
-                r_f_loc = quat_xyzw_to_matrix(self.rest_local_quat[f_idx])
+                curl_dyn = float(curl_dyn_by_digit.get((side, digit), np.zeros(num_frames))[f])
+
+                if is_thumb:
+                    deg = 4.0 + 54.0 * curl_dyn
+                else:
+                    if phalanx == 1:
+                        deg = 4.0 + 60.0 * curl_dyn
+                    elif phalanx == 2:
+                        deg = 6.0 + 74.0 * curl_dyn
+                    else:
+                        deg = 4.0 + 52.0 * curl_dyn
+                rad = float(np.radians(deg))
+
+                axis_curl = self.finger_curl_axes.get(f_idx, np.array([1.0, 0.0, 0.0]))
+                c_a, s_a = np.cos(rad), np.sin(rad)
+                u = axis_curl
+                r_curl = np.eye(3) * c_a + (1.0 - c_a) * np.outer(u, u) + np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]]) * s_a
+                r_f_rest = quat_xyzw_to_matrix(self.rest_local_quat[f_idx])
+                r_f_loc = r_f_rest @ r_curl
+
                 curr_local_rot[f_idx] = r_f_loc
                 f_name = self.idx_to_name[f_idx]
                 q_clean = continue_quaternion_xyzw(matrix_to_quat_xyzw(r_f_loc), prev_quat.get(f_name))
