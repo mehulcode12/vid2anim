@@ -247,7 +247,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     .file-pill-btn:hover { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
 
-    /* Segmented Control for Engine */
+    /* Segmented Control & Quality Option Cards */
     .segmented-control {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -277,6 +277,93 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       color: var(--text-bright);
       font-weight: 600;
       border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Motion Tracking Quality & Speed Selection */
+    .quality-options {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 5px;
+    }
+    .quality-card {
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #0d1016;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      user-select: none;
+      position: relative;
+    }
+    .quality-card:hover {
+      border-color: var(--border-hover);
+      background: #141822;
+      transform: translateY(-1px);
+    }
+    .quality-card.active {
+      background: rgba(79, 70, 229, 0.12);
+      border-color: #6366f1;
+      box-shadow: 0 0 14px rgba(99, 102, 241, 0.16);
+    }
+    .quality-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .quality-card-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    .quality-icon {
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+    .quality-time-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.2px;
+    }
+    .quality-time-pill.fast {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.28);
+    }
+    .quality-time-pill.balanced {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.28);
+    }
+    .quality-time-pill.studio {
+      background: rgba(168, 85, 247, 0.12);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.28);
+    }
+    .quality-card-sub {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #94a3b8;
+    }
+    .quality-card.active .quality-card-sub {
+      color: #a5b4fc;
+    }
+    .quality-card-desc {
+      font-size: 0.67rem;
+      color: var(--text-dim);
+      line-height: 1.35;
     }
 
     /* Form Controls */
@@ -1076,13 +1163,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <!-- Section: 3D Model Upload -->
       <div class="section-card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div class="section-title">Target Character</div>
-          <button type="button" class="section-link-btn" onclick="openRigGuideModal('rigs')" title="What models &amp; rigs are supported?">Supported Rigs ↗</button>
+          <div class="section-title">Target 3D Character</div>
+          <button type="button" class="section-link-btn" onclick="openRigGuideModal('rigs')" title="View 3D character format guide">Character Guide ↗</button>
         </div>
         <div class="upload-zone" id="modelZone" onclick="document.getElementById('modelInput').click()">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           <p>Drop 3D character</p>
-          <span>GLB, GLTF, FBX, OBJ</span>
+          <span>.GLB or .GLTF (Rigged Humanoid)</span>
+        </div>
+        <div style="font-size:0.68rem; color:var(--text-dim); margin-top:5px; line-height:1.35;">
+          Works with Mixamo, Ready Player Me, or Blender humanoid characters.
         </div>
         <div id="modelPill" class="file-pill">
           <div class="file-pill-info">
@@ -1091,30 +1181,65 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           </div>
           <button class="file-pill-btn" onclick="clearModel(event)">Remove</button>
         </div>
-        <input type="file" id="modelInput" accept=".glb,.gltf,.fbx,.obj" style="display:none">
+        <input type="file" id="modelInput" accept=".glb,.gltf" style="display:none">
       </div>
 
-      <!-- Section: Tracking Engine -->
+      <!-- Section: Motion Tracking Quality & Speed -->
       <div class="section-card">
-        <div class="section-title">Tracking Engine</div>
-        <div class="segmented-control">
-          <button type="button" class="segment-btn active" id="engineCardMediapipe" onclick="selectEngine('mediapipe')">
-            MediaPipe Pose
-          </button>
-          <button type="button" class="segment-btn" id="engineCardDwpose" onclick="selectEngine('dwpose')">
-            DWPose WholeBody
-          </button>
-          <button type="button" class="segment-btn" id="engineCardGvhmr" onclick="selectEngine('gvhmr')">
-            GVHMR Studio (3D HMR)
-          </button>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="section-title">Animation Quality &amp; Speed</div>
+        </div>
+        <div style="font-size:0.68rem; color:var(--text-dim); margin-top:-3px; margin-bottom:4px;">
+          Choose processing speed vs animation detail:
+        </div>
+
+        <div class="quality-options">
+          <!-- Option 1: Fast -->
+          <div class="quality-card active" id="engineCardMediapipe" onclick="selectEngine('mediapipe')" data-engine="MediaPipe Pose" title="Fast Mode: Standard 3D tracking">
+            <div class="quality-card-header">
+              <div class="quality-card-title">
+                <span class="quality-icon">⚡</span>
+                <span>Fast</span>
+              </div>
+              <span class="quality-time-pill fast">~5–15 sec</span>
+            </div>
+            <div class="quality-card-sub">Standard Body Motion</div>
+            <div class="quality-card-desc">Fastest turnaround. Perfect for quick previews, drafts &amp; rapid testing.</div>
+          </div>
+
+          <!-- Option 2: Balanced -->
+          <div class="quality-card" id="engineCardDwpose" onclick="selectEngine('dwpose')" data-engine="DWPose WholeBody" title="Balanced Mode: DWPose WholeBody">
+            <div class="quality-card-header">
+              <div class="quality-card-title">
+                <span class="quality-icon">⚖️</span>
+                <span>Balanced</span>
+              </div>
+              <span class="quality-time-pill balanced">~30–45 sec</span>
+            </div>
+            <div class="quality-card-sub">High Detail + Hands &amp; Fingers</div>
+            <div class="quality-card-desc">Accurate whole-body pose capture with expressive finger &amp; hand gestures.</div>
+          </div>
+
+          <!-- Option 3: Best Quality -->
+          <div class="quality-card" id="engineCardGvhmr" onclick="selectEngine('gvhmr')" data-engine="GVHMR Studio" title="Best Quality Mode: GVHMR Studio">
+            <div class="quality-card-header">
+              <div class="quality-card-title">
+                <span class="quality-icon">✨</span>
+                <span>Best Quality</span>
+              </div>
+              <span class="quality-time-pill studio">~1–2 min</span>
+            </div>
+            <div class="quality-card-sub">Studio 3D Cinematic Motion</div>
+            <div class="quality-card-desc">Authentic 3D depth, realistic ground contact &amp; full camera trajectory.</div>
+          </div>
         </div>
         <input type="hidden" id="selectedEngine" value="mediapipe">
 
-        <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
-          <div style="font-size:0.7rem; color:var(--text-dim); font-weight:600;">Execution Device</div>
+        <div style="display:flex; flex-direction:column; gap:5px; margin-top:10px;">
+          <div style="font-size:0.7rem; color:var(--text-dim); font-weight:600;">Processing Hardware</div>
           <select id="deviceSelect">
-            <option value="cpu" selected>CPU</option>
-            <option value="cuda">CUDA (GPU)</option>
+            <option value="cpu" selected>Standard (CPU) - Works on any PC / Mac</option>
+            <option value="cuda">Fast GPU (NVIDIA CUDA) - If dedicated GPU present</option>
           </select>
         </div>
       </div>
@@ -1239,7 +1364,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           <div id="modelEmptyState" class="viewport-empty">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
             <h4>3D Character Viewport</h4>
-            <p>Upload or drag a rigged 3D character (GLB, GLTF, FBX) onto the left panel</p>
+            <p>Upload or drag a rigged 3D character (.glb or .gltf) onto the left panel</p>
           </div>
           <div id="viewport3d"></div>
           <div class="viewport-hints">Rotate: Left Drag | Pan: Right Drag | Zoom: Scroll | Play: Space</div>
@@ -1861,12 +1986,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       btn.disabled = true;
       statusCard.style.display = 'flex';
       statusTitle.innerText = 'Pipeline Running';
-      statusText.innerText = 'Preparing assets and initializing ML engine...';
+      statusText.innerText = 'Preparing assets and tracking motion...';
       statusPercent.innerText = '0%';
       progressBar.style.width = '0%';
       document.getElementById('statusSubDetail').style.display = 'none';
       document.getElementById('statusSubDetail').innerText = '';
-      document.getElementById('activityLogsBody').innerHTML = '<div class="activity-log-line dim">Pipeline initialized. Waiting for engine milestones...</div>';
+      document.getElementById('activityLogsBody').innerHTML = '<div class="activity-log-line dim">Pipeline initialized. Tracking motion...</div>';
       document.getElementById('activityLogCount').innerText = '0 events';
 
       [pill1, pill2, pill3, pill4].forEach(p => p.className = 'step-pill');
@@ -2058,9 +2183,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                   <td>glTF 2.0 JSON format (with separate or embedded .bin buffers).</td>
                 </tr>
                 <tr>
-                  <td><span class="spec-pill">.FBX</span></td>
-                  <td>Supported</td>
-                  <td>Humanoid FBX assets with standard skeletal armatures.</td>
+                  <td><span class="spec-pill" style="color:#fbbf24; border-color:rgba(251,191,36,0.3)">.FBX</span></td>
+                  <td>Blender 5s Export</td>
+                  <td>To use Mixamo or FBX characters: open in Blender and choose <em>File &rarr; Export &rarr; glTF 2.0 (.glb)</em> for a 5-second export with full textures embedded.</td>
                 </tr>
                 <tr>
                   <td><span class="spec-pill" style="color:var(--text-dim)">.OBJ</span></td>
@@ -2405,12 +2530,18 @@ class Vid2AnimHTTPHandler(http.server.BaseHTTPRequestHandler):
                     if len(logs_list) > 60:
                         del logs_list[0]
 
+            mode_display = {
+                "mediapipe": "Fast Mode",
+                "dwpose": "Balanced Mode",
+                "gvhmr": "Best Quality Mode",
+            }.get(engine_str.lower(), "Standard Mode")
+
             PIPELINE_PROGRESS["active"] = True
             PIPELINE_PROGRESS["percent"] = 5
             PIPELINE_PROGRESS["step"] = "EXTRACT"
-            PIPELINE_PROGRESS["message"] = f"Initializing tracking pipeline ({engine_str.upper()})..."
-            PIPELINE_PROGRESS["detail"] = "Preparing model environment..."
-            PIPELINE_PROGRESS["logs"] = [f"[{time.strftime('%H:%M:%S')}] [INIT] Pipeline started with engine: {engine_str.upper()} on device: {device_str.upper()}"]
+            PIPELINE_PROGRESS["message"] = f"Initializing animation tracking ({mode_display})..."
+            PIPELINE_PROGRESS["detail"] = "Preparing animation pipeline..."
+            PIPELINE_PROGRESS["logs"] = [f"[{time.strftime('%H:%M:%S')}] [INIT] Pipeline started ({mode_display}) on {device_str.upper()}"]
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dir = Path(tmpdir)
