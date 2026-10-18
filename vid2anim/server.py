@@ -1824,38 +1824,33 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 }
               });
 
-              updateConversionProgress(72, 'Packaging Standardized GLB...', 'Preparing binary glTF buffer...', false);
-              modelMetaBadge.innerText = `Packaging GLB [72%] • ${fileName}`;
-
+              // Wait for texture decoding to finish (or max 1.5s) then mark character 100% ready
               Promise.race([
                 Promise.all(pendingImages),
-                new Promise(function(resolve) { setTimeout(resolve, 2500); })
+                new Promise(function(resolve) { setTimeout(resolve, 1500); })
               ]).then(function() {
-                updateConversionProgress(85, 'Packaging Standardized GLB...', 'Embedding textures & skinning bufferViews...', false);
-                modelMetaBadge.innerText = `Finalizing GLB [85%] • ${fileName}`;
+                isModelReady = true;
+                modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+                updateConversionProgress(100, 'Character Ready!', `${fileName} ready for animation`, true);
+                checkReady();
 
+                // Optional in-memory GLB buffer cache (3 arguments: input, onDone, options)
                 if (THREE.GLTFExporter) {
-                  const exporter = new THREE.GLTFExporter();
-                  exporter.parse(fbx, function(glbBuffer) {
-                    convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
-                    convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
-                    const glbMB = (glbBuffer.byteLength / (1024 * 1024)).toFixed(1);
-                    modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
-                    isModelReady = true;
-                    updateConversionProgress(100, 'Character Ready!', `Standardized binary GLB generated (${glbMB} MB)`, true);
-                    checkReady();
-                  }, function(err) {
-                    console.warn('In-browser export fallback to server converter:', err);
-                    convertedGLBBlob = null;
-                    modelMetaBadge.innerText = `FBX Ready (Direct) • ${fileName}`;
-                    isModelReady = true;
-                    updateConversionProgress(100, 'Character Ready!', 'Ready for animation (server-side converter enabled)', true);
-                    checkReady();
-                  }, { binary: true, trs: true, embedImages: true });
-                } else {
-                  isModelReady = true;
-                  updateConversionProgress(100, 'Character Ready!', 'Loaded successfully', true);
-                  checkReady();
+                  try {
+                    const exporter = new THREE.GLTFExporter();
+                    exporter.parse(
+                      fbx,
+                      function(result) {
+                        if (result instanceof ArrayBuffer) {
+                          convertedGLBBlob = new Blob([result], { type: 'model/gltf-binary' });
+                          convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
+                        }
+                      },
+                      { binary: true, trs: true }
+                    );
+                  } catch (e) {
+                    console.warn('In-browser GLB cache skipped, server pipeline will convert directly:', e);
+                  }
                 }
               });
             }, 30);
