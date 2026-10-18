@@ -1,0 +1,48 @@
+name: Release & Package Assets
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Distribution & Blender Add-on
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip build wheel
+
+      - name: Build Python wheel and sdist
+        run: |
+          python -m build
+
+      - name: Package Blender Add-on Zip
+        run: |
+          mkdir -p dist/blender
+          cp plugins/blender/vid2anim_blender.py dist/blender/
+          cd dist/blender && zip -r ../vid2anim-blender-addon.zip . && cd ../..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/vid2anim-blender-addon.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

@@ -1,0 +1,85 @@
+name: "🐛 Bug Report"
+description: File a bug report to help improve vid2anim
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide as much detail as possible so we can reproduce and fix it quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the problem...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Workflow / Interface
+      description: Where did the bug occur?
+      options:
+        - "Blender 3D Bridge Add-on"
+        - "Web Studio (Browser UI & 3D Viewer)"
+        - "CLI (vid2anim run / extract / retarget)"
+        - "Python API"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rig-profile
+    attributes:
+      label: 3D Character Rig Format
+      description: What type of 3D character rig were you retargeting onto?
+      options:
+        - "Mixamo (.fbx / .glb)"
+        - "VRM / Ready Player Me (VTubers)"
+        - "Blender Rigify"
+        - "Unreal Engine Mannequin (UE4 / UE5)"
+        - "Daz3D / Character Creator"
+        - "Static Raw Mesh (Auto-Rigging)"
+        - "Custom / Other Armature"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-engine
+    attributes:
+      label: AI Tracking Engine
+      options:
+        - "MediaPipe Pose (CPU Default)"
+        - "DWPose WholeBody"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Run command 'vid2anim ...' or open Blender
+        2. Load model '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal Logs / Error Traceback
+      description: Paste relevant terminal logs or Blender console output.
+      render: shell
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment Info
+      description: OS version, Python version, GPU model (if any), and Blender version.
+      placeholder: "Windows 11, Python 3.12, Blender 4.2 LTS, CPU mode"
+    validations:
+      required: true

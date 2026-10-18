@@ -13,6 +13,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 [![Hardware: 100% CPU Ready](https://img.shields.io/badge/Hardware-100%25%20CPU%20Ready%20(No%20GPU%20Required)-00C853.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
 [![Output: GLB & BVH](https://img.shields.io/badge/Output-glTF%202.0%20(.glb)%20%7C%20BVH-673AB7.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
 [![Tests: 49 Passing](https://img.shields.io/badge/Tests-49%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
+[![CI Test Suite](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml)
 
 [Key Features](#-what-makes-it-built-for-3d-artists) •
 [Three Ways to Use](#-three-ways-to-use-vid2anim) •

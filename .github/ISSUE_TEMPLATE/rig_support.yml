@@ -1,0 +1,38 @@
+name: "🦴 Custom 3D Rig Support Request"
+description: Request support for a specific character armature, game engine rig, or bone hierarchy
+title: "[Rig Support]: "
+labels: ["rig-mapping", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template if you have a 3D character or game engine armature that isn't automatically recognized by `vid2anim`.
+
+  - type: input
+    id: rig_name
+    attributes:
+      label: Rig / Software Name
+      placeholder: "e.g. Unity Mecanim Humanoid, AccuRIG, Metahuman, Genesis 9"
+    validations:
+      required: true
+
+  - type: textarea
+    id: bone_hierarchy
+    attributes:
+      label: Bone Hierarchy or Armature Naming
+      description: Paste the bone names from `vid2anim inspect your_model.glb` or Blender's Outliner.
+      render: text
+      placeholder: |
+        Root
+        └── Pelvis
+            ├── Spine1
+            └── LeftUpLeg ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample_model
+    attributes:
+      label: Sample Model or Documentation Link
+      description: Link to a public CC0 sample model or documentation explaining the rig standard.
+      placeholder: "https://sketchfab.com/... or https://..."
