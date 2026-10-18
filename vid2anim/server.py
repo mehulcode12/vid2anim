@@ -1338,6 +1338,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
       renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);
 
@@ -1347,14 +1349,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       controls.dampingFactor = 0.05;
       controls.update();
 
-      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.9);
       scene.add(hemiLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.6);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
       dirLight.position.set(2, 4, 3);
       scene.add(dirLight);
 
-      const backLight = new THREE.DirectionalLight(0x6366f1, 0.8);
+      const backLight = new THREE.DirectionalLight(0x6366f1, 0.6);
       backLight.position.set(-2, 2, -2);
       scene.add(backLight);
 
@@ -1462,6 +1464,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         model.updateMatrixWorld(true);
       }
 
+      model.traverse(function(child) {
+        if (child.isMesh && child.material) {
+          var mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(function(m) {
+            if (m.map) {
+              m.map.encoding = THREE.sRGBEncoding;
+              m.needsUpdate = true;
+            }
+          });
+        }
+      });
+
       scene.add(model);
 
       // Skeleton overlay
@@ -1567,39 +1581,108 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         reader.onload = function(e) {
           try {
             const buffer = e.target.result;
-            const fbxLoader = new THREE.FBXLoader();
+            const manager = new THREE.LoadingManager();
+
+            const fbxLoader = new THREE.FBXLoader(manager);
             const fbx = fbxLoader.parse(buffer, '');
+
+            // Convert materials to modern PBR MeshStandardMaterial preserving diffuse textures
+            fbx.traverse(function(child) {
+              if (child.isMesh && child.material) {
+                var mats = Array.isArray(child.material) ? child.material : [child.material];
+                var newMats = mats.map(function(m) {
+                  if (m.isMeshStandardMaterial) return m;
+                  var std = new THREE.MeshStandardMaterial({
+                    name: m.name,
+                    color: m.color || new THREE.Color(0xffffff),
+                    map: m.map || null,
+                    normalMap: m.normalMap || null,
+                    roughness: 0.7,
+                    metalness: 0.1,
+                    skinning: true,
+                    transparent: !!m.transparent,
+                    opacity: m.opacity !== undefined ? m.opacity : 1.0,
+                    side: THREE.FrontSide
+                  });
+
+                  if (std.map) {
+                    std.map.encoding = THREE.sRGBEncoding;
+                    var img = std.map.image;
+                    if (img) {
+                      if (img.complete && img.naturalWidth > 0) {
+                        std.needsUpdate = true;
+                      } else {
+                        img.addEventListener('load', function() {
+                          std.map.needsUpdate = true;
+                          std.needsUpdate = true;
+                        });
+                      }
+                    }
+                  } else if (std.color && (std.color.getHex() === 0xffffff || std.color.getHex() === 0x000000)) {
+                    var n = (child.name || '').toLowerCase();
+                    if (n.includes('hair')) std.color.setHex(0x2d1d16);
+                    else if (n.includes('top') || n.includes('shirt') || n.includes('jacket')) std.color.setHex(0x3b82f6);
+                    else if (n.includes('bottom') || n.includes('pant') || n.includes('jean')) std.color.setHex(0x1e293b);
+                    else if (n.includes('shoe') || n.includes('foot')) std.color.setHex(0x111827);
+                    else if (n.includes('body') || n.includes('skin') || n.includes('face')) std.color.setHex(0xd4a373);
+                    else if (n.includes('eye')) std.color.setHex(0x1e293b);
+                    else std.color.setHex(0x64748b);
+                  }
+                  return std;
+                });
+                child.material = Array.isArray(child.material) ? newMats : newMats[0];
+              }
+            });
+
             setupModelInScene(fbx, fbx.animations || [], true);
 
-            // Sanitize materials: clear unresolvable texture references so GLTFExporter doesn't crash on undefined image.width
+            // Wait for all embedded image blobs to decode before packaging into GLB
+            var pendingImages = [];
             fbx.traverse(function(child) {
               if (child.isMesh && child.material) {
                 var mats = Array.isArray(child.material) ? child.material : [child.material];
                 mats.forEach(function(m) {
-                  ['map', 'normalMap', 'bumpMap', 'roughnessMap', 'metalnessMap', 'specularMap', 'emissiveMap'].forEach(function(texKey) {
-                    if (m[texKey] && (!m[texKey].image || !m[texKey].image.width)) {
-                      m[texKey] = null;
+                  if (m.map && m.map.image) {
+                    var img = m.map.image;
+                    if (!img.complete || img.naturalWidth === 0) {
+                      pendingImages.push(new Promise(function(resolve) {
+                        img.addEventListener('load', function() {
+                          m.map.needsUpdate = true;
+                          m.needsUpdate = true;
+                          resolve();
+                        });
+                        img.addEventListener('error', resolve);
+                      }));
                     }
-                  });
-                  m.needsUpdate = true;
+                  }
                 });
               }
             });
 
-            // In-memory conversion to binary GLB so the pipeline can process it seamlessly
-            if (THREE.GLTFExporter) {
-              const exporter = new THREE.GLTFExporter();
-              exporter.parse(fbx, function(glbBuffer) {
-                convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
-                convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
-                modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+            Promise.race([
+              Promise.all(pendingImages),
+              new Promise(function(resolve) { setTimeout(resolve, 2500); })
+            ]).then(function() {
+              if (THREE.GLTFExporter) {
+                const exporter = new THREE.GLTFExporter();
+                exporter.parse(fbx, function(glbBuffer) {
+                  convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
+                  convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
+                  modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+                  isModelReady = true;
+                  checkReady();
+                }, function(err) {
+                  console.warn('In-browser export fallback to server converter:', err);
+                  convertedGLBBlob = null;
+                  modelMetaBadge.innerText = `FBX Ready (Direct) • ${fileName}`;
+                  isModelReady = true;
+                  checkReady();
+                }, { binary: true, trs: true, embedImages: true });
+              } else {
                 isModelReady = true;
                 checkReady();
-              }, { binary: true, trs: true });
-            } else {
-              isModelReady = true;
-              checkReady();
-            }
+              }
+            });
           } catch(err) {
             console.error('FBX parse error:', err);
             modelMetaBadge.innerText = 'FBX Load Warning: ' + (err.message || 'Displaying mesh');
