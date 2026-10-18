@@ -322,6 +322,87 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
     button:disabled { opacity: 0.35; cursor: not-allowed; }
 
+    /* Character Conversion Progress */
+    .model-convert-card {
+      margin-top: 8px;
+      padding: 9px 11px;
+      border-radius: 6px;
+      background: rgba(99, 102, 241, 0.06);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: fadeIn 0.2s ease;
+    }
+    .model-convert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .model-convert-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #c7d2fe;
+    }
+    .model-convert-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(199, 210, 254, 0.25);
+      border-top-color: #818cf8;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .model-convert-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: #818cf8;
+      font-weight: 700;
+    }
+    .model-convert-bar-bg {
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .model-convert-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1, #38bdf8);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+      border-radius: 3px;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .model-convert-detail {
+      font-size: 0.66rem;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .model-convert-card.model-convert-ready {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .model-convert-card.model-convert-ready .model-convert-title {
+      color: #34d399;
+    }
+    .model-convert-card.model-convert-ready .model-convert-pct {
+      color: #34d399;
+    }
+    .model-convert-card.model-convert-ready .model-convert-bar-fill {
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
     /* Status & Progress */
     .status-card {
       padding: 10px 12px;
@@ -1094,6 +1175,20 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           </div>
           <button class="file-pill-btn" onclick="clearModel(event)">Remove</button>
         </div>
+        <!-- Character Conversion Progress Bar -->
+        <div id="modelConvertCard" class="model-convert-card" style="display:none">
+          <div class="model-convert-header">
+            <div class="model-convert-title">
+              <div id="modelConvertSpinner" class="model-convert-spinner"></div>
+              <span id="modelConvertStep">Preparing Character...</span>
+            </div>
+            <span id="modelConvertPercent" class="model-convert-pct">0%</span>
+          </div>
+          <div class="model-convert-bar-bg">
+            <div id="modelConvertBar" class="model-convert-bar-fill"></div>
+          </div>
+          <div id="modelConvertDetail" class="model-convert-detail">Reading model binary...</div>
+        </div>
         <input type="file" id="modelInput" accept=".glb,.gltf,.fbx,.obj" style="display:none">
       </div>
 
@@ -1565,6 +1660,43 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     // Unified Model Asset Loader (supports .glb, .gltf, and .fbx)
     let isModelReady = true;
+    let currentConversionPct = 0;
+
+    function updateConversionProgress(percent, stepText, detailText, isDone) {
+      currentConversionPct = Math.max(0, Math.min(100, Math.round(percent)));
+      const card = document.getElementById('modelConvertCard');
+      const step = document.getElementById('modelConvertStep');
+      const pct = document.getElementById('modelConvertPercent');
+      const bar = document.getElementById('modelConvertBar');
+      const detail = document.getElementById('modelConvertDetail');
+      const spinner = document.getElementById('modelConvertSpinner');
+
+      if (card) {
+        card.style.display = 'flex';
+        pct.innerText = `${currentConversionPct}%`;
+        bar.style.width = `${currentConversionPct}%`;
+        if (stepText) step.innerText = stepText;
+        if (detailText) detail.innerText = detailText;
+
+        if (isDone) {
+          card.classList.add('model-convert-ready');
+          if (spinner) spinner.style.display = 'none';
+          step.innerHTML = '✓ Character Optimized &amp; Ready';
+          setTimeout(() => {
+            if (isModelReady && card) {
+              card.style.transition = 'opacity 0.8s ease';
+              card.style.opacity = '0.5';
+            }
+          }, 3500);
+        } else {
+          card.classList.remove('model-convert-ready');
+          card.style.opacity = '1';
+          if (spinner) spinner.style.display = 'block';
+        }
+      }
+
+      checkReady();
+    }
 
     function loadModelAsset(file) {
       document.getElementById('modelEmptyState').style.display = 'none';
@@ -1576,123 +1708,169 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       if (ext === 'fbx') {
         isModelReady = false;
         checkReady();
-        modelMetaBadge.innerText = 'Converting FBX Character...';
+        const fSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        updateConversionProgress(10, 'Reading FBX Asset...', `${fileName} (${fSizeMB} MB)`, false);
+        modelMetaBadge.innerText = `Converting FBX [10%] • ${fileName}`;
+
         const reader = new FileReader();
+
+        reader.onprogress = function(pe) {
+          if (pe.lengthComputable && pe.total > 0) {
+            const readPct = Math.min(30, 10 + Math.round((pe.loaded / pe.total) * 20));
+            updateConversionProgress(readPct, 'Reading FBX Asset...', `${(pe.loaded / (1024 * 1024)).toFixed(1)} / ${fSizeMB} MB loaded`, false);
+            modelMetaBadge.innerText = `Reading FBX [${readPct}%]`;
+          }
+        };
+
         reader.onload = function(e) {
           try {
+            updateConversionProgress(35, 'Parsing 3D Armature & Meshes...', 'Parsing skeletal bones and geometry hierarchy...', false);
+            modelMetaBadge.innerText = `Parsing Bones [35%] • ${fileName}`;
+
             const buffer = e.target.result;
             const manager = new THREE.LoadingManager();
 
-            const fbxLoader = new THREE.FBXLoader(manager);
-            const fbx = fbxLoader.parse(buffer, '');
+            // Give browser thread a tick to render UI progress before heavy CPU parsing
+            setTimeout(() => {
+              const fbxLoader = new THREE.FBXLoader(manager);
+              const fbx = fbxLoader.parse(buffer, '');
 
-            // Convert materials to modern PBR MeshStandardMaterial preserving diffuse textures
-            fbx.traverse(function(child) {
-              if (child.isMesh && child.material) {
-                var mats = Array.isArray(child.material) ? child.material : [child.material];
-                var newMats = mats.map(function(m) {
-                  if (m.isMeshStandardMaterial) return m;
-                  var std = new THREE.MeshStandardMaterial({
-                    name: m.name,
-                    color: m.color || new THREE.Color(0xffffff),
-                    map: m.map || null,
-                    normalMap: m.normalMap || null,
-                    roughness: 0.7,
-                    metalness: 0.1,
-                    skinning: true,
-                    transparent: !!m.transparent,
-                    opacity: m.opacity !== undefined ? m.opacity : 1.0,
-                    side: THREE.FrontSide
-                  });
+              updateConversionProgress(55, 'Processing Materials & PBR...', 'Converting Phong to PBR Standard Materials...', false);
+              modelMetaBadge.innerText = `PBR Materials [55%] • ${fileName}`;
 
-                  if (std.map) {
-                    std.map.encoding = THREE.sRGBEncoding;
-                    var img = std.map.image;
-                    if (img) {
-                      if (img.complete && img.naturalWidth > 0) {
-                        std.needsUpdate = true;
-                      } else {
-                        img.addEventListener('load', function() {
-                          std.map.needsUpdate = true;
+              // Convert materials to modern PBR MeshStandardMaterial preserving diffuse textures
+              fbx.traverse(function(child) {
+                if (child.isMesh && child.material) {
+                  var mats = Array.isArray(child.material) ? child.material : [child.material];
+                  var newMats = mats.map(function(m) {
+                    if (m.isMeshStandardMaterial) return m;
+                    var std = new THREE.MeshStandardMaterial({
+                      name: m.name,
+                      color: m.color || new THREE.Color(0xffffff),
+                      map: m.map || null,
+                      normalMap: m.normalMap || null,
+                      roughness: 0.7,
+                      metalness: 0.1,
+                      skinning: true,
+                      transparent: !!m.transparent,
+                      opacity: m.opacity !== undefined ? m.opacity : 1.0,
+                      side: THREE.FrontSide
+                    });
+
+                    if (std.map) {
+                      std.map.encoding = THREE.sRGBEncoding;
+                      var img = std.map.image;
+                      if (img) {
+                        if (img.complete && img.naturalWidth > 0) {
                           std.needsUpdate = true;
-                        });
+                        } else {
+                          img.addEventListener('load', function() {
+                            std.map.needsUpdate = true;
+                            std.needsUpdate = true;
+                          });
+                        }
+                      }
+                    } else if (std.color && (std.color.getHex() === 0xffffff || std.color.getHex() === 0x000000)) {
+                      var n = (child.name || '').toLowerCase();
+                      if (n.includes('hair')) std.color.setHex(0x2d1d16);
+                      else if (n.includes('top') || n.includes('shirt') || n.includes('jacket')) std.color.setHex(0x3b82f6);
+                      else if (n.includes('bottom') || n.includes('pant') || n.includes('jean')) std.color.setHex(0x1e293b);
+                      else if (n.includes('shoe') || n.includes('foot')) std.color.setHex(0x111827);
+                      else if (n.includes('body') || n.includes('skin') || n.includes('face')) std.color.setHex(0xd4a373);
+                      else if (n.includes('eye')) std.color.setHex(0x1e293b);
+                      else std.color.setHex(0x64748b);
+                    }
+                    return std;
+                  });
+                  child.material = Array.isArray(child.material) ? newMats : newMats[0];
+                }
+              });
+
+              setupModelInScene(fbx, fbx.animations || [], true);
+
+              // Track texture decoding progress
+              var pendingImages = [];
+              var totalImages = 0;
+              var loadedImages = 0;
+
+              fbx.traverse(function(child) {
+                if (child.isMesh && child.material) {
+                  var mats = Array.isArray(child.material) ? child.material : [child.material];
+                  mats.forEach(function(m) {
+                    if (m.map && m.map.image) {
+                      totalImages++;
+                      var img = m.map.image;
+                      if (!img.complete || img.naturalWidth === 0) {
+                        pendingImages.push(new Promise(function(resolve) {
+                          img.addEventListener('load', function() {
+                            loadedImages++;
+                            var texPct = Math.min(80, 55 + Math.round((loadedImages / Math.max(1, totalImages)) * 25));
+                            updateConversionProgress(texPct, 'Decoding Embedded Textures...', `Texture ${loadedImages}/${totalImages} decoded`, false);
+                            modelMetaBadge.innerText = `Decoding Textures [${texPct}%]`;
+                            m.map.needsUpdate = true;
+                            m.needsUpdate = true;
+                            resolve();
+                          });
+                          img.addEventListener('error', function() {
+                            loadedImages++;
+                            resolve();
+                          });
+                        }));
+                      } else {
+                        loadedImages++;
                       }
                     }
-                  } else if (std.color && (std.color.getHex() === 0xffffff || std.color.getHex() === 0x000000)) {
-                    var n = (child.name || '').toLowerCase();
-                    if (n.includes('hair')) std.color.setHex(0x2d1d16);
-                    else if (n.includes('top') || n.includes('shirt') || n.includes('jacket')) std.color.setHex(0x3b82f6);
-                    else if (n.includes('bottom') || n.includes('pant') || n.includes('jean')) std.color.setHex(0x1e293b);
-                    else if (n.includes('shoe') || n.includes('foot')) std.color.setHex(0x111827);
-                    else if (n.includes('body') || n.includes('skin') || n.includes('face')) std.color.setHex(0xd4a373);
-                    else if (n.includes('eye')) std.color.setHex(0x1e293b);
-                    else std.color.setHex(0x64748b);
-                  }
-                  return std;
-                });
-                child.material = Array.isArray(child.material) ? newMats : newMats[0];
-              }
-            });
+                  });
+                }
+              });
 
-            setupModelInScene(fbx, fbx.animations || [], true);
+              updateConversionProgress(72, 'Packaging Standardized GLB...', 'Preparing binary glTF buffer...', false);
+              modelMetaBadge.innerText = `Packaging GLB [72%] • ${fileName}`;
 
-            // Wait for all embedded image blobs to decode before packaging into GLB
-            var pendingImages = [];
-            fbx.traverse(function(child) {
-              if (child.isMesh && child.material) {
-                var mats = Array.isArray(child.material) ? child.material : [child.material];
-                mats.forEach(function(m) {
-                  if (m.map && m.map.image) {
-                    var img = m.map.image;
-                    if (!img.complete || img.naturalWidth === 0) {
-                      pendingImages.push(new Promise(function(resolve) {
-                        img.addEventListener('load', function() {
-                          m.map.needsUpdate = true;
-                          m.needsUpdate = true;
-                          resolve();
-                        });
-                        img.addEventListener('error', resolve);
-                      }));
-                    }
-                  }
-                });
-              }
-            });
+              Promise.race([
+                Promise.all(pendingImages),
+                new Promise(function(resolve) { setTimeout(resolve, 2500); })
+              ]).then(function() {
+                updateConversionProgress(85, 'Packaging Standardized GLB...', 'Embedding textures & skinning bufferViews...', false);
+                modelMetaBadge.innerText = `Finalizing GLB [85%] • ${fileName}`;
 
-            Promise.race([
-              Promise.all(pendingImages),
-              new Promise(function(resolve) { setTimeout(resolve, 2500); })
-            ]).then(function() {
-              if (THREE.GLTFExporter) {
-                const exporter = new THREE.GLTFExporter();
-                exporter.parse(fbx, function(glbBuffer) {
-                  convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
-                  convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
-                  modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+                if (THREE.GLTFExporter) {
+                  const exporter = new THREE.GLTFExporter();
+                  exporter.parse(fbx, function(glbBuffer) {
+                    convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
+                    convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
+                    const glbMB = (glbBuffer.byteLength / (1024 * 1024)).toFixed(1);
+                    modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+                    isModelReady = true;
+                    updateConversionProgress(100, 'Character Ready!', `Standardized binary GLB generated (${glbMB} MB)`, true);
+                    checkReady();
+                  }, function(err) {
+                    console.warn('In-browser export fallback to server converter:', err);
+                    convertedGLBBlob = null;
+                    modelMetaBadge.innerText = `FBX Ready (Direct) • ${fileName}`;
+                    isModelReady = true;
+                    updateConversionProgress(100, 'Character Ready!', 'Ready for animation (server-side converter enabled)', true);
+                    checkReady();
+                  }, { binary: true, trs: true, embedImages: true });
+                } else {
                   isModelReady = true;
+                  updateConversionProgress(100, 'Character Ready!', 'Loaded successfully', true);
                   checkReady();
-                }, function(err) {
-                  console.warn('In-browser export fallback to server converter:', err);
-                  convertedGLBBlob = null;
-                  modelMetaBadge.innerText = `FBX Ready (Direct) • ${fileName}`;
-                  isModelReady = true;
-                  checkReady();
-                }, { binary: true, trs: true, embedImages: true });
-              } else {
-                isModelReady = true;
-                checkReady();
-              }
-            });
+                }
+              });
+            }, 30);
           } catch(err) {
             console.error('FBX parse error:', err);
             modelMetaBadge.innerText = 'FBX Load Warning: ' + (err.message || 'Displaying mesh');
             isModelReady = true;
+            updateConversionProgress(100, 'Loaded with Warnings', err.message || 'Displaying mesh', true);
             checkReady();
           }
         };
         reader.readAsArrayBuffer(file);
       } else {
         isModelReady = true;
+        updateConversionProgress(100, 'Native GLB Character Ready', `${fileName}`, true);
         const url = URL.createObjectURL(file);
         const loader = new THREE.GLTFLoader();
         loader.load(url, (gltf) => {
@@ -1957,6 +2135,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       document.getElementById('modelZone').style.display = 'none';
       const ext = (file.name || '').split('.').pop().toLowerCase();
       isModelReady = (ext !== 'fbx');
+      const convertCard = document.getElementById('modelConvertCard');
+      if (convertCard && ext !== 'fbx') {
+        convertCard.style.display = 'none';
+      }
       loadModelAsset(file);
       checkReady();
     }
@@ -1965,10 +2147,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       if (e) e.stopPropagation();
       selectedModel = null;
       convertedGLBBlob = null;
+      currentConversionPct = 0;
       document.getElementById('modelInput').value = '';
       document.getElementById('modelPill').style.display = 'none';
       document.getElementById('modelZone').style.display = 'block';
       document.getElementById('modelEmptyState').style.display = 'flex';
+      const convertCard = document.getElementById('modelConvertCard');
+      if (convertCard) {
+        convertCard.style.display = 'none';
+        convertCard.classList.remove('model-convert-ready');
+      }
       if (mixer) mixer.stopAllAction();
       scene.children.filter(c => c.isGroup || c.isMesh || c.isSkeletonHelper).forEach(c => scene.remove(c));
       modelMetaBadge.innerText = 'Waiting for model';
@@ -2018,7 +2206,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       const ready = !!(selectedMedia && selectedModel && isModelReady);
       btn.disabled = !ready;
       if (!isModelReady && selectedModel) {
-        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Converting Character...';
+        const pctText = currentConversionPct > 0 ? ` (${currentConversionPct}%)` : '';
+        btn.innerHTML = `<div class="model-convert-spinner" style="width:13px;height:13px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></div> Converting Character${pctText}...`;
       } else {
         btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Animate Character';
       }
