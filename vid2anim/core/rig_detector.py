@@ -178,9 +178,14 @@ def _inspect_gltf_or_glb(path: Path) -> RigAnalysis:
             warnings=["No 'skins' definition found in GLTF. This is a static unrigged mesh."],
         )
 
-    # Collect joint names and initial bind rotations
-    skin = skins[0]
-    joint_indices = skin.get("joints", [])
+    # Collect joint names and initial bind rotations across all skins
+    joint_indices: List[int] = []
+    seen_joints = set()
+    for s in skins:
+        for j in s.get("joints", []):
+            if j not in seen_joints:
+                seen_joints.add(j)
+                joint_indices.append(j)
     bone_names: List[str] = []
     bind_rotations: Dict[str, List[float]] = {}
 

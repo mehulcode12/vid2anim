@@ -65,13 +65,16 @@ class Vid2AnimPipeline:
         warnings: List[str] = []
 
         try:
-            # 1. Validation
+            # 1. Validation & Format Normalization
             self._validate_inputs()
+            from .utils.fbx_support import ensure_glb_model
+
+            target_model = ensure_glb_model(self.config.target_model, reporter=self.reporter)
             out_glb = self.config.output_glb or Path("outputs") / f"{self.config.target_model.stem}_animated.glb"
 
             # 2. Inspect 3D Model
-            self.reporter.report("PIPELINE", 0.05, f"Inspecting 3D model: {self.config.target_model.name}")
-            rig_info = inspect_model(self.config.target_model)
+            self.reporter.report("PIPELINE", 0.05, f"Inspecting 3D model: {target_model.name}")
+            rig_info = inspect_model(target_model)
             if not rig_info.is_rigged:
                 warnings.append("Model is unrigged. Experimental auto-rigging fallback activated.")
 
@@ -126,7 +129,7 @@ class Vid2AnimPipeline:
             # 7. Export Skinned Animated GLB
             self.reporter.report("PIPELINE", 0.88, f"Exporting animated GLB to: {out_glb.name}")
             exporter = GLBAnimationExporter(reporter=self.reporter)
-            exporter.export_animated_glb(self.config.target_model, animation, rig_info, out_glb)
+            exporter.export_animated_glb(target_model, animation, rig_info, out_glb)
 
             # Optional BVH Export
             out_bvh: Optional[Path] = None

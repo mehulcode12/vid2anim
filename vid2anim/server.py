@@ -1550,6 +1550,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     // Unified Model Asset Loader (supports .glb, .gltf, and .fbx)
+    let isModelReady = true;
+
     function loadModelAsset(file) {
       document.getElementById('modelEmptyState').style.display = 'none';
       convertedGLBBlob = null;
@@ -1558,7 +1560,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       const ext = fileName.split('.').pop().toLowerCase();
 
       if (ext === 'fbx') {
-        modelMetaBadge.innerText = 'Loading FBX...';
+        isModelReady = false;
+        checkReady();
+        modelMetaBadge.innerText = 'Converting FBX Character...';
         const reader = new FileReader();
         reader.onload = function(e) {
           try {
@@ -1567,6 +1571,21 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             const fbx = fbxLoader.parse(buffer, '');
             setupModelInScene(fbx, fbx.animations || [], true);
 
+            // Sanitize materials: clear unresolvable texture references so GLTFExporter doesn't crash on undefined image.width
+            fbx.traverse(function(child) {
+              if (child.isMesh && child.material) {
+                var mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach(function(m) {
+                  ['map', 'normalMap', 'bumpMap', 'roughnessMap', 'metalnessMap', 'specularMap', 'emissiveMap'].forEach(function(texKey) {
+                    if (m[texKey] && (!m[texKey].image || !m[texKey].image.width)) {
+                      m[texKey] = null;
+                    }
+                  });
+                  m.needsUpdate = true;
+                });
+              }
+            });
+
             // In-memory conversion to binary GLB so the pipeline can process it seamlessly
             if (THREE.GLTFExporter) {
               const exporter = new THREE.GLTFExporter();
@@ -1574,19 +1593,28 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 convertedGLBBlob = new Blob([glbBuffer], { type: 'model/gltf-binary' });
                 convertedGLBBlob.name = fileName.replace(/\.[^/.]+$/, "") + ".glb";
                 modelMetaBadge.innerText = `FBX Ready • ${fileName}`;
+                isModelReady = true;
+                checkReady();
               }, { binary: true });
+            } else {
+              isModelReady = true;
+              checkReady();
             }
           } catch(err) {
             console.error('FBX parse error:', err);
-            modelMetaBadge.innerText = 'FBX Load Error';
+            modelMetaBadge.innerText = 'FBX Load Warning: ' + (err.message || 'Displaying mesh');
+            isModelReady = true;
+            checkReady();
           }
         };
         reader.readAsArrayBuffer(file);
       } else {
+        isModelReady = true;
         const url = URL.createObjectURL(file);
         const loader = new THREE.GLTFLoader();
         loader.load(url, (gltf) => {
           setupModelInScene(gltf.scene, gltf.animations || [], false);
+          checkReady();
         });
       }
     }
@@ -1844,6 +1872,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       document.getElementById('modelName').innerText = file.name;
       document.getElementById('modelPill').style.display = 'flex';
       document.getElementById('modelZone').style.display = 'none';
+      const ext = (file.name || '').split('.').pop().toLowerCase();
+      isModelReady = (ext !== 'fbx');
       loadModelAsset(file);
       checkReady();
     }
@@ -1901,7 +1931,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     function checkReady() {
-      document.getElementById('runBtn').disabled = !(selectedMedia && selectedModel);
+      const btn = document.getElementById('runBtn');
+      const ready = !!(selectedMedia && selectedModel && isModelReady);
+      btn.disabled = !ready;
+      if (!isModelReady && selectedModel) {
+        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Converting Character...';
+      } else {
+        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Animate Character';
+      }
     }
 
     async function startAnimationPipeline() {

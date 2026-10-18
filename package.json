@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "fflate": "^0.7.4",
+    "three": "^0.128.0"
+  }
+}
