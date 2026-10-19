@@ -38,10 +38,12 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *Reference video driving dual independent character armatures in lockstep with 5-digit finger articulation, metric root trajectory, and stance-foot ground contact.*
 
 <p align="center">
-  <img src="docs/media/comparison_preview.gif" alt="vid2anim Dual Character Studio Comparison Demo" width="95%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+  <video src="docs/media/comparison.mp4" controls width="95%" poster="docs/media/comparison_poster.jpg">
+    Your browser does not support the video tag.
+  </video>
 </p>
 
-[▶ **Watch 1080p Trio Comparison Video (`docs/media/comparison.mp4`)**](docs/media/comparison.mp4)
+[▶ **Download/View 1080p Trio Comparison Video (`docs/media/comparison.mp4`)**](docs/media/comparison.mp4)
 
 <br/>
 
@@ -49,10 +51,12 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *End-to-end browser workflow: real-time milestone progress bar, live event logging, skeleton helper overlays, frame scrubbing, and one-click GLB download.*
 
 <p align="center">
-  <img src="docs/media/walkthrough_preview.gif" alt="vid2anim Web Studio Full Walkthrough" width="95%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+  <video src="docs/media/walkthrough.mp4" controls width="95%" poster="docs/media/walkthrough_poster.jpg">
+    Your browser does not support the video tag.
+  </video>
 </p>
 
-[▶ **Watch 1080p Full Studio Walkthrough Video (`docs/media/walkthrough.mp4`)**](docs/media/walkthrough.mp4)
+[▶ **Download/View 1080p Studio Walkthrough Video (`docs/media/walkthrough.mp4`)**](docs/media/walkthrough.mp4)
 
 <br/>
 
