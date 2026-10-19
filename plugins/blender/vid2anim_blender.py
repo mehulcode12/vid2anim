@@ -11,7 +11,7 @@ Requires no third-party pip dependencies inside Blender.
 bl_info = {
     "name": "vid2anim Blender Bridge",
     "author": "Mehul & vid2anim contributors",
-    "version": (0, 1, 0),
+    "version": (0, 1, 1),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > vid2anim",
     "description": "Animate any 3D character armature directly from video or photo with AI motion capture.",

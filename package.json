@@ -1,6 +1,6 @@
 {
   "name": "vid2anim",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Animate any 3D character model from video or photos using AI motion capture and universal retargeting.",
   "main": "bin/vid2anim.js",
   "bin": {

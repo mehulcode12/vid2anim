@@ -7,7 +7,7 @@ Unreal Engine, Daz3D/Character Creator, and experimental auto-rigging for static
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .core.canonical_skeleton import CANONICAL_JOINTS_ORDER, CanonicalMotion
 from .core.motion_extractor import (
