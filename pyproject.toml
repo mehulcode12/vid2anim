@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Animate any 3D character model from video or photos using AI motion capture and universal retargeting."
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Mehul", email = "mehul@users.noreply.github.com"},
     {name = "vid2anim contributors"}
@@ -32,7 +32,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Multimedia :: Graphics :: 3D Modeling",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
