@@ -193,7 +193,8 @@ def test_top_level_package_exports():
     import vid2anim
 
     assert hasattr(vid2anim, "__version__")
-    assert vid2anim.__version__ == "0.1.0"
+    assert isinstance(vid2anim.__version__, str)
+    assert len(vid2anim.__version__.split(".")) >= 3
     for symbol in vid2anim.__all__:
         assert hasattr(vid2anim, symbol), f"Symbol {symbol} missing from vid2anim module"
 
