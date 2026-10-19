@@ -31,6 +31,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run Pytest (All 49 Tests)
+      - name: Run Pytest (All 57 Tests)
         run: |
           pytest -v

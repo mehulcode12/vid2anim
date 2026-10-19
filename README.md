@@ -13,7 +13,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 [![Triple AI Engines](https://img.shields.io/badge/Engines-MediaPipe%20%7C%20DWPose%20%7C%20GVHMR%20(SMPL--X)-blue.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
 [![Drive Isolation](https://img.shields.io/badge/Storage-Zero%20C%3A%20Drive%20Writes%20(Project--Isolated)-00C853.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
 [![Output: GLB & BVH](https://img.shields.io/badge/Output-glTF%202.0%20(.glb)%20%7C%20BVH-673AB7.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
-[![Tests: 54 Passing](https://img.shields.io/badge/Tests-54%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
+[![Tests: 57 Passing](https://img.shields.io/badge/Tests-57%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
 [![CI Test Suite](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml)
 
 [Showcase](#-walkthrough--visual-showcase) •
@@ -38,12 +38,18 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *Reference video driving dual independent character armatures in lockstep with 5-digit finger articulation, metric root trajectory, and stance-foot ground contact.*
 
 <p align="center">
-  <video src="docs/media/comparison.mp4" controls width="95%" poster="docs/media/comparison_poster.jpg">
-    Your browser does not support the video tag.
-  </video>
+  <img src="docs/media/comparison_preview.gif" alt="Synchronized Multi-Character Animation Studio Demo" width="95%" />
 </p>
 
-[▶ **Download/View 1080p Trio Comparison Video (`docs/media/comparison.mp4`)**](docs/media/comparison.mp4)
+<p align="center">
+  <a href="docs/media/comparison.mp4">
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_Full_1080p_Video-comparison.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Watch Full Video" />
+  </a>
+  &nbsp;
+  <a href="samples/">
+    <img src="https://img.shields.io/badge/%F0%9F%93%A6_Sample_Assets-models_%26_clips-673AB7?style=for-the-badge&logo=github&logoColor=white" alt="Sample Assets" />
+  </a>
+</p>
 
 <br/>
 
@@ -51,12 +57,18 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *End-to-end browser workflow: real-time milestone progress bar, live event logging, skeleton helper overlays, frame scrubbing, and one-click GLB download.*
 
 <p align="center">
-  <video src="docs/media/walkthrough.mp4" controls width="95%" poster="docs/media/walkthrough_poster.jpg">
-    Your browser does not support the video tag.
-  </video>
+  <img src="docs/media/walkthrough_preview.gif" alt="Full Web Studio & Pipeline Walkthrough Demo" width="95%" />
 </p>
 
-[▶ **Download/View 1080p Studio Walkthrough Video (`docs/media/walkthrough.mp4`)**](docs/media/walkthrough.mp4)
+<p align="center">
+  <a href="docs/media/walkthrough.mp4">
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_Full_1080p_Video-walkthrough.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Watch Full Video" />
+  </a>
+  &nbsp;
+  <a href="samples/README.md">
+    <img src="https://img.shields.io/badge/%E2%9A%A1_Sample_Quickstart-samples%2FREADME.md-E87D0D?style=for-the-badge&logo=markdown&logoColor=white" alt="Quickstart Guide" />
+  </a>
+</p>
 
 <br/>
 
