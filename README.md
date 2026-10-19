@@ -39,7 +39,9 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *Reference video driving dual independent character armatures in lockstep with 5-digit finger articulation, metric root trajectory, and stance-foot ground contact.*
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/b4dcba6c-25c2-4490-81e1-006ca6e7d939" controls width="95%"></video>
+  <a href="https://youtu.be/Y3eJLQgHwsc" target="_blank">
+    <img src="docs/media/video_card_comparison.jpg" alt="vid2anim Synchronized Multi-Character Studio Demo" width="95%" />
+  </a>
 </p>
 
 <p align="center">
@@ -58,7 +60,9 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *End-to-end browser workflow: real-time milestone progress bar, live event logging, skeleton helper overlays, frame scrubbing, and one-click GLB download.*
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/4f72017e-1722-4eae-9182-8369498efaac" controls width="95%"></video>
+  <a href="https://youtu.be/4eaRWq1vsGs" target="_blank">
+    <img src="docs/media/video_card_walkthrough.jpg" alt="vid2anim Studio Walkthrough" width="95%" />
+  </a>
 </p>
 
 <p align="center">
