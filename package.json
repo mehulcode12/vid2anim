@@ -1,0 +1,34 @@
+{
+  "name": "vid2anim",
+  "version": "0.1.0",
+  "description": "Animate any 3D character model from video or photos using AI motion capture and universal retargeting.",
+  "main": "bin/vid2anim.js",
+  "bin": {
+    "vid2anim": "bin/vid2anim.js"
+  },
+  "scripts": {
+    "start": "node bin/vid2anim.js serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mehulcode12/vid2anim.git"
+  },
+  "keywords": [
+    "motion-capture",
+    "mocap",
+    "retargeting",
+    "3d",
+    "blender",
+    "animation",
+    "ai",
+    "threejs",
+    "gltf",
+    "glb"
+  ],
+  "author": "mehulcode12",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mehulcode12/vid2anim/issues"
+  },
+  "homepage": "https://github.com/mehulcode12/vid2anim#readme"
+}
