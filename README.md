@@ -15,6 +15,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 [![Output: GLB & BVH](https://img.shields.io/badge/Output-glTF%202.0%20(.glb)%20%7C%20BVH-673AB7.svg?style=flat)](https://github.com/mehulcode12/vid2anim)
 [![Tests: 57 Passing](https://img.shields.io/badge/Tests-57%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
 [![CI Test Suite](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml)
+[![YouTube Demos](https://img.shields.io/badge/YouTube-Video%20Demos-FF0000.svg?style=flat&logo=youtube&logoColor=white)](https://youtu.be/4eaRWq1vsGs)
 
 [Showcase](#-walkthrough--visual-showcase) •
 [Sample Assets](#-included-sample-models--videos) •
@@ -42,8 +43,12 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 </p>
 
 <p align="center">
+  <a href="https://youtu.be/Y3eJLQgHwsc" target="_blank">
+    <img src="https://img.shields.io/badge/YouTube-Watch%20Comparison%20Demo%20(1080p)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube" />
+  </a>
+  &nbsp;
   <a href="docs/media/comparison.mp4">
-    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_Full_1080p_Video-comparison.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Watch Full Video" />
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Direct_MP4-comparison.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Direct MP4" />
   </a>
   &nbsp;
   <a href="samples/">
@@ -61,12 +66,16 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 </p>
 
 <p align="center">
+  <a href="https://youtu.be/4eaRWq1vsGs" target="_blank">
+    <img src="https://img.shields.io/badge/YouTube-Watch%20Studio%20Walkthrough%20(1080p)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube" />
+  </a>
+  &nbsp;
   <a href="docs/media/walkthrough.mp4">
-    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_Full_1080p_Video-walkthrough.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Watch Full Video" />
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Direct_MP4-walkthrough.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Direct MP4" />
   </a>
   &nbsp;
   <a href="samples/README.md">
-    <img src="https://img.shields.io/badge/%E2%9A%A1_Sample_Quickstart-samples%2FREADME.md-E87D0D?style=for-the-badge&logo=markdown&logoColor=white" alt="Quickstart Guide" />
+    <img src="https://img.shields.io/badge/%E2%9A%A1_Quickstart_Guide-samples%2FREADME.md-E87D0D?style=for-the-badge&logo=markdown&logoColor=white" alt="Quickstart Guide" />
   </a>
 </p>
 
@@ -74,7 +83,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 
 | 🎬 **Studio Walkthrough** | ⚡ **Trio Comparison Demo** | 📦 **Sample Assets** |
 |:---:|:---:|:---:|
-| [▶ **Full Video (60s)**](docs/media/walkthrough.mp4)<br/><sub>Complete Studio UI, progress tracking & download</sub> | [▶ **Full Video (27s)**](docs/media/comparison.mp4)<br/><sub>Synchronized reference video with dual GLB characters</sub> | [📁 **Explore Sample Assets**](samples/)<br/><sub>Pre-rigged models (`ybot.glb`, `eve.glb`) & sample videos</sub> |
+| [▶ **Watch on YouTube (60s)**](https://youtu.be/4eaRWq1vsGs) • [Raw MP4](docs/media/walkthrough.mp4)<br/><sub>Complete Studio UI, progress tracking & download</sub> | [▶ **Watch on YouTube (27s)**](https://youtu.be/Y3eJLQgHwsc) • [Raw MP4](docs/media/comparison.mp4)<br/><sub>Synchronized reference video with dual GLB characters</sub> | [📁 **Explore Sample Assets**](samples/)<br/><sub>Pre-rigged models (`ybot.glb`, `eve.glb`) & sample videos</sub> |
 
 </div>
 

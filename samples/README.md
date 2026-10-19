@@ -2,6 +2,11 @@
 
 This folder contains ready-to-use sample 3D characters and reference video footage for quick testing, benchmarking, and demonstration of `vid2anim`.
 
+> [!TIP]
+> **See these sample assets in action:**
+> - [▶ Watch Synchronized Multi-Character Demo on YouTube](https://youtu.be/Y3eJLQgHwsc)
+> - [▶ Watch Full Web Studio Walkthrough on YouTube](https://youtu.be/4eaRWq1vsGs)
+
 ---
 
 ## 📦 Contents
