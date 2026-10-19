@@ -39,20 +39,18 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *Reference video driving dual independent character armatures in lockstep with 5-digit finger articulation, metric root trajectory, and stance-foot ground contact.*
 
 <p align="center">
-  <img src="docs/media/comparison_preview.gif" alt="Synchronized Multi-Character Animation Studio Demo" width="95%" />
+  <a href="https://youtu.be/Y3eJLQgHwsc" target="_blank">
+    <img src="https://img.youtube.com/vi/Y3eJLQgHwsc/maxresdefault.jpg" alt="vid2anim Synchronized Multi-Character Studio Demo" width="92%" />
+  </a>
 </p>
 
 <p align="center">
   <a href="https://youtu.be/Y3eJLQgHwsc" target="_blank">
-    <img src="https://img.shields.io/badge/YouTube-Watch%20Comparison%20Demo%20(1080p)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube" />
-  </a>
-  &nbsp;
-  <a href="docs/media/comparison.mp4">
-    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Direct_MP4-comparison.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Direct MP4" />
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_on_YouTube-Comparison_Demo_(1080p)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube" />
   </a>
   &nbsp;
   <a href="samples/">
-    <img src="https://img.shields.io/badge/%F0%9F%93%A6_Sample_Assets-models_%26_clips-673AB7?style=for-the-badge&logo=github&logoColor=white" alt="Sample Assets" />
+    <img src="https://img.shields.io/badge/%F0%9F%93%A6_Explore_Sample_Assets-models_%26_clips-673AB7?style=for-the-badge&logo=github&logoColor=white" alt="Sample Assets" />
   </a>
 </p>
 
@@ -62,20 +60,18 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 *End-to-end browser workflow: real-time milestone progress bar, live event logging, skeleton helper overlays, frame scrubbing, and one-click GLB download.*
 
 <p align="center">
-  <img src="docs/media/walkthrough_preview.gif" alt="Full Web Studio & Pipeline Walkthrough Demo" width="95%" />
+  <a href="https://youtu.be/4eaRWq1vsGs" target="_blank">
+    <img src="https://img.youtube.com/vi/4eaRWq1vsGs/maxresdefault.jpg" alt="vid2anim Studio Walkthrough" width="92%" />
+  </a>
 </p>
 
 <p align="center">
   <a href="https://youtu.be/4eaRWq1vsGs" target="_blank">
-    <img src="https://img.shields.io/badge/YouTube-Watch%20Studio%20Walkthrough%20(1080p)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube" />
-  </a>
-  &nbsp;
-  <a href="docs/media/walkthrough.mp4">
-    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Direct_MP4-walkthrough.mp4-00C853?style=for-the-badge&logo=quicktime&logoColor=white" alt="Direct MP4" />
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_on_YouTube-Studio_Walkthrough_(1080p)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube" />
   </a>
   &nbsp;
   <a href="samples/README.md">
-    <img src="https://img.shields.io/badge/%E2%9A%A1_Quickstart_Guide-samples%2FREADME.md-E87D0D?style=for-the-badge&logo=markdown&logoColor=white" alt="Quickstart Guide" />
+    <img src="https://img.shields.io/badge/%E2%9A%A1_Sample_Quickstart-samples%2FREADME.md-E87D0D?style=for-the-badge&logo=markdown&logoColor=white" alt="Quickstart Guide" />
   </a>
 </p>
 
@@ -83,7 +79,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 
 | 🎬 **Studio Walkthrough** | ⚡ **Trio Comparison Demo** | 📦 **Sample Assets** |
 |:---:|:---:|:---:|
-| [▶ **Watch on YouTube (60s)**](https://youtu.be/4eaRWq1vsGs) • [Raw MP4](docs/media/walkthrough.mp4)<br/><sub>Complete Studio UI, progress tracking & download</sub> | [▶ **Watch on YouTube (27s)**](https://youtu.be/Y3eJLQgHwsc) • [Raw MP4](docs/media/comparison.mp4)<br/><sub>Synchronized reference video with dual GLB characters</sub> | [📁 **Explore Sample Assets**](samples/)<br/><sub>Pre-rigged models (`ybot.glb`, `eve.glb`) & sample videos</sub> |
+| [▶ **Watch on YouTube (60s)**](https://youtu.be/4eaRWq1vsGs)<br/><sub>Complete Studio UI, progress tracking & download</sub> | [▶ **Watch on YouTube (27s)**](https://youtu.be/Y3eJLQgHwsc)<br/><sub>Synchronized reference video with dual GLB characters</sub> | [📁 **Explore Sample Assets**](samples/)<br/><sub>Pre-rigged models (`ybot.glb`, `eve.glb`) & sample videos</sub> |
 
 </div>
 
