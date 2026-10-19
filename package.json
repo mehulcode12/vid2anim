@@ -6,6 +6,11 @@
   "bin": {
     "vid2anim": "bin/vid2anim.js"
   },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node bin/vid2anim.js serve"
   },
