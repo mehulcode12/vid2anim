@@ -73,20 +73,36 @@ def _encode_multipart_form(fields: Dict[str, str], files: Dict[str, Tuple[str, b
 
 
 def check_server_status(server_url: str) -> Tuple[bool, str]:
-    """Ping vid2anim server health check endpoint."""
-    url = server_url.rstrip("/") + "/api/health"
+    """Ping vid2anim server health check endpoint with intelligent port fallback."""
+    def _probe(target_url: str) -> Optional[str]:
+        url = target_url.rstrip("/") + "/api/health"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "vid2anim-Blender-Bridge/0.1.0"})
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if data.get("status") == "ok":
+                        return "Server Online (Ready)"
+        except Exception:
+            return None
+        return None
+
+    status = _probe(server_url)
+    if status:
+        return True, status
+
+    # Check common alternate localhost port (8080 vs 8000)
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "vid2anim-Blender-Bridge/0.1.0"})
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
-            if resp.status == 200:
-                data = json.loads(resp.read().decode("utf-8"))
-                if data.get("status") == "ok":
-                    return True, "Server Online (Ready)"
-    except urllib.error.URLError:
-        return False, "Server Offline (Run: vid2anim serve)"
-    except Exception as e:
-        return False, f"Connection Error: {e}"
-    return False, "Server Offline"
+        parsed = urllib.parse.urlparse(server_url)
+        if parsed.hostname in ("127.0.0.1", "localhost") and parsed.port in (8000, 8080):
+            alt_port = 8000 if parsed.port == 8080 else 8080
+            alt_url = f"{parsed.scheme}://{parsed.hostname}:{alt_port}"
+            if _probe(alt_url):
+                return False, f"Server found on port {alt_port}! Change Server URL to {alt_url}"
+    except Exception:
+        pass
+
+    return False, "Server Offline (Run: vid2anim serve)"
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +114,7 @@ if bpy:
         server_url: StringProperty(
             name="Server URL",
             description="Address of the running local vid2anim Web UI & API server",
-            default="http://127.0.0.1:8000",
+            default="http://127.0.0.1:8080",
         )
         media_path: StringProperty(
             name="Media File",
@@ -186,22 +202,26 @@ if bpy:
         def execute(self, context):
             props = context.scene.vid2anim_props
 
-            # 1. Validation: Verify active object is an Armature
-            armature_obj = context.active_object
-            if not armature_obj:
+            # 1. Validation: Verify active object is an Armature or Skinned Mesh
+            active_obj = context.active_object
+            if not active_obj:
                 self.report({'ERROR'}, "Please select an armature or rigged character.")
                 return {'CANCELLED'}
 
-            # If user selected a skinned mesh, find its parent armature
+            armature_obj = active_obj
             if armature_obj.type != 'ARMATURE':
                 parent_arm = armature_obj.find_armature() if hasattr(armature_obj, 'find_armature') else None
                 if not parent_arm and armature_obj.parent and armature_obj.parent.type == 'ARMATURE':
                     parent_arm = armature_obj.parent
+                if not parent_arm:
+                    for mod in armature_obj.modifiers:
+                        if mod.type == 'ARMATURE' and mod.object:
+                            parent_arm = mod.object
+                            break
                 if parent_arm:
                     armature_obj = parent_arm
-                    context.view_layer.objects.active = armature_obj
                 else:
-                    self.report({'ERROR'}, f"Selected object '{armature_obj.name}' is not an Armature and has no parent armature.")
+                    self.report({'ERROR'}, f"Selected object '{active_obj.name}' is not an Armature and has no parent armature.")
                     return {'CANCELLED'}
 
             # 2. Validation: Verify media file path
@@ -215,30 +235,42 @@ if bpy:
             if not is_online:
                 self.report(
                     {'ERROR'},
-                    f"vid2anim server is offline at {props.server_url}. Please run 'vid2anim serve' in terminal first."
+                    f"vid2anim server is offline at {props.server_url}. ({status_msg})"
                 )
                 return {'CANCELLED'}
 
             self.report({'INFO'}, f"Exporting '{armature_obj.name}' for AI motion retargeting...")
+
+            # 4. Mode & Selection Management
+            prev_mode = context.mode
+            prev_selected = list(context.selected_objects)
+            prev_active = context.active_object
+            prev_pose_position = getattr(armature_obj.data, "pose_position", 'POSE')
+
+            # Ensure we are in OBJECT mode for clean export and selection operations
+            if prev_mode != 'OBJECT' and hasattr(bpy.ops.object, "mode_set") and bpy.ops.object.mode_set.poll():
+                bpy.ops.object.mode_set(mode='OBJECT')
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dir = Path(tmpdir)
                 export_glb_path = tmp_dir / "target_character.glb"
                 result_glb_path = tmp_dir / "animated_character.glb"
 
-                # 4. Export selected character as temporary GLB
-                # Save current selection state
-                prev_selected = list(context.selected_objects)
-                prev_active = context.active_object
-
                 try:
-                    # Select armature and all its skinned children
+                    # Temporarily evaluate armature in canonical REST position for pure bind pose export
+                    armature_obj.data.pose_position = 'REST'
+
+                    # Select armature and all its skinned children / modifier-bound meshes
                     bpy.ops.object.select_all(action='DESELECT')
                     armature_obj.select_set(True)
-                    for child in armature_obj.children:
-                        if child.type == 'MESH':
-                            child.select_set(True)
                     context.view_layer.objects.active = armature_obj
+
+                    for obj in context.scene.objects:
+                        if obj.type == 'MESH':
+                            if obj.parent == armature_obj:
+                                obj.select_set(True)
+                            elif any(m.type == 'ARMATURE' and m.object == armature_obj for m in obj.modifiers):
+                                obj.select_set(True)
 
                     # Export selected armature & mesh to temporary GLB
                     bpy.ops.export_scene.gltf(
@@ -253,13 +285,24 @@ if bpy:
                     self.report({'ERROR'}, f"Failed to export character to glTF: {e}")
                     return {'CANCELLED'}
                 finally:
-                    # Restore previous selection
+                    # Restore armature pose_position
+                    armature_obj.data.pose_position = prev_pose_position
+
+                    # Restore previous selection and active object
                     bpy.ops.object.select_all(action='DESELECT')
                     for o in prev_selected:
                         if o.name in bpy.data.objects:
                             o.select_set(True)
                     if prev_active and prev_active.name in bpy.data.objects:
                         context.view_layer.objects.active = prev_active
+
+                    # Restore previous interaction mode (POSE, etc.)
+                    if prev_mode != 'OBJECT' and prev_mode in {'POSE', 'EDIT', 'SCULPT', 'PAINT_WEIGHT'}:
+                        try:
+                            if bpy.ops.object.mode_set.poll():
+                                bpy.ops.object.mode_set(mode=prev_mode)
+                        except Exception:
+                            pass
 
                 if not export_glb_path.exists() or export_glb_path.stat().st_size == 0:
                     self.report({'ERROR'}, "glTF export generated an empty file.")
@@ -318,6 +361,7 @@ if bpy:
                 # 6. Import animated GLB and extract Action
                 before_actions = set(bpy.data.actions.keys())
                 before_objects = set(bpy.data.objects.keys())
+                before_armatures = set(bpy.data.armatures.keys())
 
                 try:
                     bpy.ops.import_scene.gltf(
@@ -330,26 +374,41 @@ if bpy:
 
                 after_actions = set(bpy.data.actions.keys())
                 after_objects = set(bpy.data.objects.keys())
+                after_armatures = set(bpy.data.armatures.keys())
 
                 new_actions = list(after_actions - before_actions)
                 new_objects = [bpy.data.objects[name] for name in (after_objects - before_objects) if name in bpy.data.objects]
+                new_armatures = [bpy.data.armatures[name] for name in (after_armatures - before_armatures) if name in bpy.data.armatures]
 
                 if not new_actions:
                     self.report({'ERROR'}, "No new animation action found in retargeted asset.")
-                    # Clean up imported objects
                     for o in new_objects:
                         bpy.data.objects.remove(o, do_unlink=True)
                     return {'CANCELLED'}
 
-                # Prefer action named 'Vid2Anim_Motion' or take the first newly imported one
+                # Prefer action containing 'Vid2Anim' or take the first newly imported one
                 target_action_name = next((a for a in new_actions if "Vid2Anim" in a), new_actions[0])
                 target_action = bpy.data.actions[target_action_name]
 
-                # Rename the action cleanly
+                # Protect action from being purged and rename cleanly
+                target_action.use_fake_user = True
                 final_action_name = props.action_name or "Vid2Anim_Motion"
                 target_action.name = final_action_name
 
-                # Clean up temporary imported objects and meshes
+                # 7. Apply Action to active armature FIRST before deleting temporary imported objects
+                if not armature_obj.animation_data:
+                    armature_obj.animation_data_create()
+                armature_obj.animation_data.action = target_action
+
+                # Ensure pose bones with quaternion rotation channels evaluate in QUATERNION mode
+                if hasattr(armature_obj, "pose") and armature_obj.pose:
+                    for fcurve in target_action.fcurves:
+                        if "rotation_quaternion" in fcurve.data_path and 'pose.bones["' in fcurve.data_path:
+                            b_name = fcurve.data_path.split('pose.bones["')[1].split('"]')[0]
+                            if b_name in armature_obj.pose.bones:
+                                armature_obj.pose.bones[b_name].rotation_mode = 'QUATERNION'
+
+                # Clean up temporary imported objects, meshes, and armatures
                 for o in new_objects:
                     if o.type == 'MESH' and o.data:
                         mesh_data = o.data
@@ -359,22 +418,26 @@ if bpy:
                     else:
                         bpy.data.objects.remove(o, do_unlink=True)
 
-                # 7. Apply Action to active armature
-                if not armature_obj.animation_data:
-                    armature_obj.animation_data_create()
-                armature_obj.animation_data.action = target_action
+                for arm_data in new_armatures:
+                    if arm_data.users == 0:
+                        bpy.data.armatures.remove(arm_data)
 
-                # 8. Adjust scene timeline
+                # 8. Adjust scene timeline and auto-play
                 if props.sync_timeline and target_action.frame_range:
                     context.scene.frame_start = int(target_action.frame_range[0])
                     context.scene.frame_end = int(target_action.frame_range[1])
                     context.scene.frame_current = context.scene.frame_start
 
                 if props.auto_play:
-                    bpy.ops.screen.animation_play()
+                    is_playing = getattr(context.screen, "is_animation_playing", False)
+                    if not is_playing:
+                        try:
+                            bpy.ops.screen.animation_play()
+                        except Exception:
+                            pass
 
                 total_frames = int(target_action.frame_range[1] - target_action.frame_range[0]) if target_action.frame_range else 0
-                self.report({'INFO'}, f"Applied '{final_action_name}' ({total_frames} frames) to armature '{armature_obj.name}'!")
+                self.report({'INFO'}, f"Applied '{target_action.name}' ({total_frames} frames) to armature '{armature_obj.name}'!")
                 return {'FINISHED'}
 
 

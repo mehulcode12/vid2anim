@@ -99,7 +99,7 @@ def main() -> None:
     # Command: serve (Web UI)
     serve_parser = subparsers.add_parser("serve", help="Launch local Web UI & API server with 3D viewer.")
     serve_parser.add_argument("--host", default="127.0.0.1", help="Host address (default: 127.0.0.1)")
-    serve_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
+    serve_parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
 
     # Command: run (End-to-End)
     run_parser = subparsers.add_parser("run", help="Full pipeline: media + 3D model -> animated .glb")

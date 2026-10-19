@@ -233,11 +233,7 @@ def handle_addon_command(export_path: Optional[str] = None, auto_install: bool =
 
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(addon_py, arcname="vid2anim_blender/vid2anim_blender.py")
-        # Include an __init__.py inside the package for standard multi-file add-on support
-        zf.writestr(
-            "vid2anim_blender/__init__.py",
-            "from .vid2anim_blender import bl_info, register, unregister\n",
-        )
+        zf.write(addon_py, arcname="vid2anim_blender/__init__.py")
 
     print("=" * 65)
     print("               vid2anim Blender Bridge Add-on")

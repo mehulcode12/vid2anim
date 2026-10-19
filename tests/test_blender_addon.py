@@ -2,6 +2,7 @@
 
 import json
 import urllib.request
+import zipfile
 from pathlib import Path
 import pytest
 
@@ -76,5 +77,19 @@ def test_check_server_status(running_server):
     assert "Server Online" in msg
 
     # Bad port
-    is_bad, _ = check_server_status("http://127.0.0.1:59999")
+    is_bad, msg_bad = check_server_status("http://127.0.0.1:59999")
     assert is_bad is False
+    assert "Offline" in msg_bad
+
+
+def test_exported_addon_zip_bl_info(tmp_path):
+    """Verify exported addon zip contains valid bl_info in __init__.py for Blender AST parser."""
+    from vid2anim.utils.cli_features import handle_addon_command
+    zip_path = tmp_path / "test_addon.zip"
+    handle_addon_command(export_path=str(zip_path), auto_install=False)
+
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        init_code = zf.read("vid2anim_blender/__init__.py").decode("utf-8")
+        assert "bl_info = {" in init_code
+        assert '"name": "vid2anim Blender Bridge"' in init_code
+
