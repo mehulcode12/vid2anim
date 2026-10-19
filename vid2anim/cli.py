@@ -15,10 +15,18 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .core.glb_writer import GLBAnimationExporter
 from .core.motion_extractor import MotionExtractor, MotionSequence
 from .core.retargeter import UniversalRetargeter
 from .core.rig_detector import RigType, inspect_model
+from .utils.cli_features import (
+    handle_addon_command,
+    handle_batch_command,
+    handle_benchmark_command,
+    handle_info_command,
+    handle_samples_command,
+)
 from .utils.diagnostics import print_doctor_report
 from .utils.progress import ProgressReporter
 
@@ -28,7 +36,16 @@ def main() -> None:
         prog="vid2anim",
         description="Animate any 3D model from photo or video with AI motion capture and universal retargeting.",
     )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"vid2anim {__version__} (AI Motion Capture & Universal 3D Retargeting Studio)",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # Command: info
+    subparsers.add_parser("info", help="Quick overview of version, active engines, and project storage paths.")
 
     # Command: doctor
     subparsers.add_parser("doctor", help="Check hardware, CPU, CUDA GPU, FFmpeg, and dependencies.")
@@ -36,6 +53,34 @@ def main() -> None:
     # Command: inspect
     inspect_parser = subparsers.add_parser("inspect", help="Inspect a 3D model's armature, format, and bone mapping.")
     inspect_parser.add_argument("model", help="Path to 3D asset (.glb, .gltf, .fbx, .obj)")
+
+    # Command: samples
+    samples_parser = subparsers.add_parser("samples", help="Manage and test official bundled sample characters and reference videos.")
+    samples_parser.add_argument("action", choices=["list", "run", "copy"], default="list", nargs="?", help="Action: list, run (demo), or copy (default: list)")
+    samples_parser.add_argument("--model", default="ybot", help="Target sample model for 'run' (ybot, eve) (default: ybot)")
+    samples_parser.add_argument("--engine", choices=["mediapipe", "dwpose", "gvhmr"], default="mediapipe", help="Tracking engine for 'run' (default: mediapipe)")
+    samples_parser.add_argument("--dest", default=None, help="Destination directory for 'copy' (default: ./samples)")
+
+    # Command: batch
+    batch_parser = subparsers.add_parser("batch", help="Batch process multiple videos and/or character models.")
+    batch_parser.add_argument("--inputs", "-i", nargs="+", help="One or more input video/photo paths")
+    batch_parser.add_argument("--input-dir", help="Directory containing input videos or photos")
+    batch_parser.add_argument("--models", "-m", nargs="+", help="One or more target 3D character models (.glb)")
+    batch_parser.add_argument("--model-dir", help="Directory containing target 3D character models (.glb)")
+    batch_parser.add_argument("--output-dir", "-o", default="outputs/batch", help="Destination directory for animated GLBs (default: outputs/batch)")
+    batch_parser.add_argument("--engine", choices=["mediapipe", "dwpose", "gvhmr"], default="mediapipe", help="Tracking engine (default: mediapipe)")
+    batch_parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Compute device (default: auto)")
+    batch_parser.add_argument("--max-duration", type=float, default=30.0, help="Max video duration in seconds per clip (default: 30.0)")
+
+    # Command: addon
+    addon_parser = subparsers.add_parser("addon", help="Package or install the Blender bridge 3D add-on.")
+    addon_parser.add_argument("--export", "-e", nargs="?", const="outputs/vid2anim_blender.zip", default="outputs/vid2anim_blender.zip", help="Export path for installable .zip for Blender (default: outputs/vid2anim_blender.zip)")
+    addon_parser.add_argument("--install", action="store_true", help="Auto-detect local Blender versions and install directly")
+
+    # Command: benchmark
+    bench_parser = subparsers.add_parser("benchmark", help="Benchmark extraction and universal retargeting FPS on current hardware.")
+    bench_parser.add_argument("--frames", type=int, default=60, help="Number of benchmark frames (default: 60)")
+    bench_parser.add_argument("--engine", choices=["mediapipe", "dwpose", "gvhmr"], default="mediapipe", help="Tracking engine (default: mediapipe)")
 
     # Command: extract
     extract_parser = subparsers.add_parser("extract", help="Extract 3D motion from video or photo to cached .npz.")
@@ -75,8 +120,42 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    if args.command == "doctor":
+    if args.command == "info":
+        handle_info_command()
+        sys.exit(0)
+
+    elif args.command == "doctor":
         print_doctor_report()
+        sys.exit(0)
+
+    elif args.command == "samples":
+        handle_samples_command(
+            action=args.action,
+            model_name=args.model,
+            engine=args.engine,
+            dest_dir=args.dest,
+        )
+        sys.exit(0)
+
+    elif args.command == "batch":
+        handle_batch_command(
+            inputs=args.inputs,
+            input_dir=args.input_dir,
+            models=args.models,
+            model_dir=args.model_dir,
+            output_dir=args.output_dir,
+            engine=args.engine,
+            device=args.device,
+            max_duration=args.max_duration,
+        )
+        sys.exit(0)
+
+    elif args.command == "addon":
+        handle_addon_command(export_path=args.export, auto_install=args.install)
+        sys.exit(0)
+
+    elif args.command == "benchmark":
+        handle_benchmark_command(frames=args.frames, engine=args.engine)
         sys.exit(0)
 
     elif args.command == "inspect":

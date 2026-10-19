@@ -162,6 +162,20 @@ vid2anim run --input samples/videos/dance_street.mp4 --model samples/models/eve.
 vid2anim extract --input samples/videos/dance_urban.mp4 --engine mediapipe --output outputs/motion_urban.npz
 vid2anim retarget --motion outputs/motion_urban.npz --model samples/models/ybot.glb --output outputs/ybot_anim.glb
 vid2anim retarget --motion outputs/motion_urban.npz --model samples/models/eve.glb  --output outputs/eve_anim.glb
+
+# 4. Batch animate entire directory of videos across multiple 3D characters:
+vid2anim batch --input-dir ./my_videos --model-dir ./my_characters --output-dir ./outputs/batch --engine mediapipe
+
+# 5. Export or auto-install Blender Bridge 3D Add-on:
+vid2anim addon --export                  # Packages outputs/vid2anim_blender.zip
+vid2anim addon --install                 # Auto-detects local Blender 3.0 - 4.2+ LTS & installs directly
+
+# 6. Benchmark hardware throughput & retargeting FPS:
+vid2anim benchmark --frames 60
+
+# 7. Check environment, active tracking engines & isolated storage:
+vid2anim info
+vid2anim samples list                    # Inspect bundled characters and dance videos
 ```
 
 ---
@@ -304,12 +318,17 @@ For the cleanest, production-ready mocap results:
 
 | Command | Usage | Description |
 |:---|:---|:---|
-| `vid2anim serve` | `vid2anim serve --port 8080` | Launch local Web Studio & 3D player |
-| `vid2anim inspect` | `vid2anim inspect character.glb` | Inspect bones, rig type, and rest pose |
-| `vid2anim run` | `vid2anim run -i clip.mp4 -m rig.glb --engine gvhmr -o out.glb` | Full end-to-end animation |
-| `vid2anim extract` | `vid2anim extract -i clip.mp4 --engine dwpose -o motion.npz` | Extract motion to reusable cache |
-| `vid2anim retarget` | `vid2anim retarget -m motion.npz -m rig.glb` | Retarget cached motion onto any model |
-| `vid2anim doctor` | `vid2anim doctor` | Check hardware, CPU, and AI models |
+| `vid2anim serve` | `vid2anim serve --port 8080` | Launch local Web Studio & interactive Three.js 3D player |
+| `vid2anim run` | `vid2anim run -i clip.mp4 -m rig.glb --engine gvhmr -o out.glb` | Full end-to-end video-to-character animation pipeline |
+| `vid2anim batch` | `vid2anim batch -i clips/ -m characters/ -o outputs/batch` | Batch process multiple videos and 3D character models |
+| `vid2anim addon` | `vid2anim addon --export` / `vid2anim addon --install` | Package or auto-install Blender Bridge 3D Add-on |
+| `vid2anim extract` | `vid2anim extract -i clip.mp4 --engine dwpose -o motion.npz` | Extract 3D skeletal motion to reusable cached `.npz` |
+| `vid2anim retarget` | `vid2anim retarget -m motion.npz --model rig.glb -o out.glb` | Retarget cached motion onto any 3D model |
+| `vid2anim benchmark` | `vid2anim benchmark --frames 60` | Test hardware throughput, universal retargeter & pose FPS |
+| `vid2anim samples` | `vid2anim samples list` / `vid2anim samples run` | Inspect, demo test, or copy bundled characters & dance clips |
+| `vid2anim inspect` | `vid2anim inspect character.glb` | Inspect bones, rig type (Mixamo/VRM/UE), and rest pose |
+| `vid2anim doctor` | `vid2anim doctor` | Run hardware diagnostics (CPU, CUDA GPU, FFmpeg, engines) |
+| `vid2anim info` | `vid2anim info` | Quick overview of version, active engines & isolated paths |
 
 ---
 
