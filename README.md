@@ -40,7 +40,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 
 <p align="center">
   <a href="https://youtu.be/Y3eJLQgHwsc" target="_blank">
-    <img src="docs/media/video_card_comparison.jpg" alt="vid2anim Synchronized Multi-Character Studio Demo" width="95%" />
+    <img src="docs/media/comparison_preview.gif" alt="vid2anim Synchronized Multi-Character Studio Demo" width="95%" />
   </a>
 </p>
 
@@ -61,7 +61,7 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 
 <p align="center">
   <a href="https://youtu.be/4eaRWq1vsGs" target="_blank">
-    <img src="docs/media/video_card_walkthrough.jpg" alt="vid2anim Studio Walkthrough" width="95%" />
+    <img src="docs/media/walkthrough_preview.gif" alt="vid2anim Studio Walkthrough" width="95%" />
   </a>
 </p>
 
