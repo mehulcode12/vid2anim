@@ -16,6 +16,8 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 [![Tests: 54 Passing](https://img.shields.io/badge/Tests-54%20passed-brightgreen.svg)](https://github.com/mehulcode12/vid2anim)
 [![CI Test Suite](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulcode12/vid2anim/actions/workflows/ci.yml)
 
+[Showcase](#-walkthrough--visual-showcase) •
+[Sample Assets](#-included-sample-models--videos) •
 [Key Features](#-why-3d-artists--animators-love-vid2anim) •
 [Triple AI Engines](#-triple-ai-tracking-engine-suite) •
 [Three Ways to Use](#-three-ways-to-use-vid2anim) •
@@ -23,6 +25,40 @@ Works with **Mixamo, VRM / VTubers, Blender Rigify, Unreal Engine Mannequins, Da
 [2-Minute Quickstart](#-2-minute-quickstart) •
 [Blender Add-on Guide](#-blender-3d-bridge-add-on) •
 [Animator Tips](#-animator--capture-best-practices)
+
+</div>
+
+---
+
+## 🎬 Walkthrough & Visual Showcase
+
+<div align="center">
+
+### 1. Synchronized Multi-Character Studio Demo
+*Reference video driving dual independent character armatures in lockstep with 5-digit finger articulation, metric root trajectory, and stance-foot ground contact.*
+
+<p align="center">
+  <img src="docs/media/comparison_preview.gif" alt="vid2anim Dual Character Studio Comparison Demo" width="95%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+</p>
+
+[▶ **Watch 1080p Trio Comparison Video (`docs/media/comparison.mp4`)**](docs/media/comparison.mp4)
+
+<br/>
+
+### 2. Full Web Studio & Pipeline Walkthrough
+*End-to-end browser workflow: real-time milestone progress bar, live event logging, skeleton helper overlays, frame scrubbing, and one-click GLB download.*
+
+<p align="center">
+  <img src="docs/media/walkthrough_preview.gif" alt="vid2anim Web Studio Full Walkthrough" width="95%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+</p>
+
+[▶ **Watch 1080p Full Studio Walkthrough Video (`docs/media/walkthrough.mp4`)**](docs/media/walkthrough.mp4)
+
+<br/>
+
+| 🎬 **Studio Walkthrough** | ⚡ **Trio Comparison Demo** | 📦 **Sample Assets** |
+|:---:|:---:|:---:|
+| [▶ **Full Video (60s)**](docs/media/walkthrough.mp4)<br/><sub>Complete Studio UI, progress tracking & download</sub> | [▶ **Full Video (27s)**](docs/media/comparison.mp4)<br/><sub>Synchronized reference video with dual GLB characters</sub> | [📁 **Explore Sample Assets**](samples/)<br/><sub>Pre-rigged models (`ybot.glb`, `eve.glb`) & sample videos</sub> |
 
 </div>
 
@@ -95,17 +131,16 @@ Open **`http://localhost:8080`** to access:
 > **Best for:** Technical Directors, game studios, and processing entire motion libraries.
 
 ```bash
-# 1. Animate a character with ultra-fast CPU MediaPipe tracking:
-vid2anim run --input dance.mp4 --model ybot.glb --engine mediapipe --output dance_animated.glb
+# 1. Animate sample humanoid with ultra-fast CPU MediaPipe tracking (works out-of-the-box):
+vid2anim run --input samples/videos/dance_urban.mp4 --model samples/models/ybot.glb --engine mediapipe --output outputs/ybot_dance.glb
 
-# 2. Animate with studio-grade 3D Human Mesh Recovery (GVHMR):
-vid2anim run --input acrobatic.mp4 --model character.glb --engine gvhmr --output acrobatic_hmr.glb
+# 2. Animate with high-detail 5-digit finger articulation on Eve:
+vid2anim run --input samples/videos/dance_street.mp4 --model samples/models/eve.glb --engine dwpose --output outputs/eve_dance.glb
 
-# 3. Extract motion once to reusable cache, then retarget onto 10 different characters:
-vid2anim extract --input stunts.mp4 --engine gvhmr --output motion_stunts.npz
-vid2anim retarget --motion motion_stunts.npz --model warrior.glb --output warrior_anim.glb
-vid2anim retarget --motion motion_stunts.npz --model robot.glb   --output robot_anim.glb
-vid2anim retarget --motion motion_stunts.npz --model vtuber.vrm  --output vtuber_anim.glb
+# 3. Extract motion once to reusable cache, then retarget onto multiple characters:
+vid2anim extract --input samples/videos/dance_urban.mp4 --engine mediapipe --output outputs/motion_urban.npz
+vid2anim retarget --motion outputs/motion_urban.npz --model samples/models/ybot.glb --output outputs/ybot_anim.glb
+vid2anim retarget --motion outputs/motion_urban.npz --model samples/models/eve.glb  --output outputs/eve_anim.glb
 ```
 
 ---
@@ -180,6 +215,30 @@ Checks your CPU cores, compute device, and AI tracking engines.
 vid2anim serve --port 8080
 ```
 Open **[http://localhost:8080](http://localhost:8080)** in your browser and start animating!
+
+### 4. Animate Sample Character in 30 Seconds
+```bash
+vid2anim run \
+  --input samples/videos/dance_urban.mp4 \
+  --model samples/models/ybot.glb \
+  --engine mediapipe \
+  --output outputs/my_first_dance.glb
+```
+
+---
+
+## 📦 Included Sample Models & Videos
+
+To get started immediately without hunting for 3D assets or reference footage, `vid2anim` comes bundled with official sample assets in [`samples/`](samples/):
+
+| Asset Type | File Path | Rig Type / Motion Style | Specs | Size | Best For |
+|:---|:---|:---|:---|:---:|:---|
+| **Humanoid Robot** | [`samples/models/ybot.glb`](samples/models/ybot.glb) | Adobe Mixamo Humanoid | 52 Bones, T-Pose | 2.2 MB | Fast CPU tracking, quick testing |
+| **Stylized Character** | [`samples/models/eve.glb`](samples/models/eve.glb) | Adobe Mixamo Humanoid | 65 Bones, 5-Digit Hand Rigging | 18.3 MB | Expressive finger gestures & textured renders |
+| **Urban Dance** | [`samples/videos/dance_urban.mp4`](samples/videos/dance_urban.mp4) | Dynamic urban rhythm | 1080×1920, 25 FPS, 11.2s | 6.8 MB | Sharp arm movements & foot grounding |
+| **Street Freestyle** | [`samples/videos/dance_street.mp4`](samples/videos/dance_street.mp4) | Street dance choreography | 1080×1920, 25 FPS, 15.2s | 10.3 MB | Torso travel, leg steps & hand gestures |
+
+> See [`samples/README.md`](samples/README.md) for full rig specs, bone hierarchy tables, and batch scripts.
 
 ---
 

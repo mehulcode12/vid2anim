@@ -32,6 +32,7 @@ outputs/
 *.npz
 *.glb
 *.mp4
+*.mkv
 vid/
 glb/
 weights/
@@ -40,6 +41,12 @@ assets/
 inputs/
 *.task
 .pytest_cache/
+
+# Whitelist official sample assets and documentation media
+!samples/
+!samples/**
+!docs/media/
+!docs/media/**
 
 # Scratch & Local Agent Tooling
 scratch/
